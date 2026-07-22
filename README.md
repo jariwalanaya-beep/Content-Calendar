@@ -139,7 +139,14 @@ Every cell edits in place and saves when you leave it. The Format and Content Id
 fields offer your usual values as suggestions but accept any text.
 
 ### Content Library
-Every piece of content, with four views in a tab bar:
+Every piece of content. Note the two name fields:
+
+- **Topic** — your internal working name, shown as the big heading. This is what
+  you scan the table by.
+- **Title** — the published/video title, kept separate so you can write the real
+  headline without losing the working name. Search matches both.
+
+Four views in a tab bar:
 
 - **Table** (default) — all entries, sortable by any column, fully inline-editable.
 - **Board** — kanban grouped by Status. Drag a card to another column to change it.

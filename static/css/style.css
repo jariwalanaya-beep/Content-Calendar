@@ -495,6 +495,13 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   font-size: 21px; font-weight: 700; letter-spacing: -.02em;
   line-height: 1.3; flex: 1;
 }
+/* The published video title, shown under the internal topic heading. */
+.preview-published {
+  margin: -6px 0 12px;
+  padding-left: 11px; border-left: 3px solid var(--accent);
+  color: var(--text-muted); font-size: 14px; line-height: 1.5;
+}
+
 .preview-meta {
   display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
   padding-bottom: 16px; border-bottom: 1px solid var(--border);
@@ -670,3 +677,6 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   .topbar { gap: 12px; padding: 0 12px; }
   .detail-title { font-size: 26px; }
 }
+
+/* Title column in the table view */
+.col-title { min-width: 240px; }

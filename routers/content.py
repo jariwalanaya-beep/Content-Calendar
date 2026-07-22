@@ -20,7 +20,7 @@ router = APIRouter(prefix="/content", tags=["content"])
 # Columns the client is allowed to sort by. Whitelisted rather than interpolated
 # from user input, because column names cannot be passed as SQL parameters.
 SORTABLE = {
-    "topic", "assigned_to", "performance", "status", "type",
+    "topic", "title", "assigned_to", "performance", "status", "type",
     "upload_date", "created_at", "updated_at",
 }
 
@@ -30,6 +30,7 @@ def _row_to_content(row: sqlite3.Row) -> Content:
     return Content(
         id=row["id"],
         topic=row["topic"],
+        title=row["title"] if "title" in row.keys() else "",
         assigned_to=row["assigned_to"],
         notes=row["notes"],
         performance=row["performance"],
@@ -80,8 +81,9 @@ def list_content(
         # LIKE with ESCAPE so a literal % or _ in the search box matches itself
         # instead of acting as a wildcard.
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        where.append("c.topic LIKE ? ESCAPE '\\'")
-        params.append(f"%{escaped}%")
+        # Search both the internal topic and the published title.
+        where.append("(c.topic LIKE ? ESCAPE '\\' OR c.title LIKE ? ESCAPE '\\')")
+        params.extend([f"%{escaped}%", f"%{escaped}%"])
 
     if month:
         # Dates are stored as ISO 'YYYY-MM-DD' text, so a prefix match on the
@@ -162,11 +164,12 @@ def create_content(
 
     cur = conn.execute(
         """INSERT INTO content
-             (topic, assigned_to, notes, performance, status, type,
+             (topic, title, assigned_to, notes, performance, status, type,
               upload_date, script, board_order, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             payload.topic,
+            payload.title,
             payload.assigned_to,
             payload.notes,
             payload.performance.value if payload.performance else None,

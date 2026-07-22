@@ -82,6 +82,10 @@ export async function renderDetail(root, id) {
 
   side.append(el('div', { class: 'side-panel' },
     el('div', { class: 'field-grid' },
+      // The published/video title, separate from the Topic heading above,
+      // which stays as the internal working name.
+      field('Title', textCell(item.title, v => save({ title: v }),
+                              { placeholder: 'Published video title' })),
       field('Status',      selectCell(item.status, STATUSES,
                                       v => save({ status: v }), { allowEmpty: false })),
       field('Type',        selectCell(item.type, TYPES, v => save({ type: v }))),

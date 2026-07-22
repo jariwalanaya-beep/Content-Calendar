@@ -16,7 +16,7 @@ import sqlite3
 from config import settings
 
 # Bump this when you change the schema, and add the matching migration below.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Monday-first, matching the weekly template layout.
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday",
@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS weekly_template (
 CREATE TABLE IF NOT EXISTS content (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     topic        TEXT    NOT NULL DEFAULT 'Untitled',
+    title        TEXT    NOT NULL DEFAULT '',   -- published/video title, separate from the internal topic
     assigned_to  TEXT    NOT NULL DEFAULT '',
     notes        TEXT    NOT NULL DEFAULT '',
     performance  TEXT,                          -- Viral | Average | Failed | NULL
@@ -175,7 +176,15 @@ def _migrate(conn: sqlite3.Connection) -> None:
     current = conn.execute("PRAGMA user_version").fetchone()[0]
     if current == SCHEMA_VERSION:
         return
-    # No destructive migrations exist yet; just record the version.
+
+    # v1 -> v2: add the published title column to databases created before it
+    # existed. CREATE TABLE above already covers brand-new databases, so this
+    # only matters for an upgrade in place.
+    if current < 2:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(content)")}
+        if "title" not in cols:
+            conn.execute("ALTER TABLE content ADD COLUMN title TEXT NOT NULL DEFAULT ''")
+
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 

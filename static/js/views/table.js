@@ -11,6 +11,7 @@ import {
 
 const COLUMNS = [
   { key: 'topic',       label: 'Topic',       sortable: true,  cls: 'col-topic' },
+  { key: 'title',       label: 'Title',       sortable: true,  cls: 'col-title' },
   { key: 'status',      label: 'Status',      sortable: true  },
   { key: 'type',        label: 'Type',        sortable: true  },
   { key: 'performance', label: 'Performance', sortable: true  },
@@ -91,6 +92,8 @@ export async function renderTable(root, state) {
                 `🎬${item.raw_count + item.final_count}`)
             : null,
         )),
+      el('td', { class: 'col-title' },
+        textCell(item.title, v => save({ title: v }), { placeholder: '—' })),
       el('td', {}, selectCell(item.status, STATUSES,
                               v => save({ status: v }), { allowEmpty: false })),
       el('td', {}, selectCell(item.type, TYPES, v => save({ type: v }))),

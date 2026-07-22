@@ -92,6 +92,8 @@ class WeeklyDay(BaseModel):
 class ContentCreate(BaseModel):
     """Payload for creating a library entry. Everything except topic is optional."""
     topic: str = Field(default="Untitled", max_length=500)
+    # The published/video title, kept separate from the internal working topic.
+    title: str = Field(default="", max_length=500)
     assigned_to: str = ""
     notes: str = ""
     performance: Performance | None = None
@@ -126,6 +128,7 @@ class ContentUpdate(BaseModel):
     is left untouched, whereas a field explicitly set to null is cleared.
     """
     topic: str | None = Field(default=None, max_length=500)
+    title: str | None = Field(default=None, max_length=500)
     assigned_to: str | None = None
     notes: str | None = None
     performance: Performance | None = None
@@ -171,6 +174,7 @@ class Content(BaseModel):
     """A library entry. `raw` and `final` are populated on the detail endpoint."""
     id: int
     topic: str
+    title: str = ""
     assigned_to: str
     notes: str
     performance: Performance | None
