@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content Hub</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+</head>
+<body>
+
+<!-- Top bar: brand, section switch, search, new-entry button ---------------- -->
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">🎬</span>
+    <span class="brand-name">Content Hub</span>
+  </div>
+
+  <nav class="section-nav">
+    <a href="#/library" class="section-link" data-section="library">Content Library</a>
+    <a href="#/weekly"  class="section-link" data-section="weekly">Weekly Template</a>
+  </nav>
+
+  <div class="topbar-right">
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path>
+      </svg>
+      <input id="search" type="search" placeholder="Search topics…" autocomplete="off">
+    </div>
+    <button id="new-entry" class="btn btn-primary">
+      <span aria-hidden="true">+</span> New
+    </button>
+  </div>
+</header>
+
+<!-- Main view target; each view module renders into this ------------------- -->
+<main id="view" class="view"></main>
+
+<!-- Footer shows where files are actually being written --------------------- -->
+<footer class="footer">
+  <span id="footer-media">media: …</span>
+  <span id="footer-disk"></span>
+</footer>
+
+<!-- Toast notifications ----------------------------------------------------- -->
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<!-- Reusable confirm dialog ------------------------------------------------- -->
+<dialog id="confirm-dialog" class="dialog">
+  <h3 id="confirm-title">Are you sure?</h3>
+  <p id="confirm-body"></p>
+  <div class="dialog-actions">
+    <button id="confirm-cancel" class="btn">Cancel</button>
+    <button id="confirm-ok" class="btn btn-danger">Delete</button>
+  </div>
+</dialog>
+
+<script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

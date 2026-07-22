@@ -1,0 +1,11 @@
+# Content Hub dependencies.
+# Install into a virtualenv (required on Ubuntu 24.04+ / PEP 668):
+#   python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+
+fastapi>=0.115.0        # web framework
+uvicorn[standard]>=0.30.0   # ASGI server; [standard] adds httptools + uvloop for faster streaming
+python-dotenv>=1.0.0    # reads the .env file
+# Starlette arrives via FastAPI. Pinned indirectly at >=0.40 because that is where
+# FileResponse gained native HTTP range-request support, which is what makes video
+# seeking work without any custom byte-range code.
+starlette>=0.40.0

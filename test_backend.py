@@ -1,0 +1,194 @@
+"""
+End-to-end backend checks.
+
+Run from the project folder with the venv active:
+    python test_backend.py
+
+Uses a throwaway database and media folder under ./_testrun/ so it never touches
+real data, then deletes them.
+"""
+import os
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+
+# Point the app at a scratch database and media folder BEFORE importing config.
+TESTDIR = Path(__file__).resolve().parent / "_testrun"
+shutil.rmtree(TESTDIR, ignore_errors=True)
+TESTDIR.mkdir(parents=True)
+os.environ["MEDIA_ROOT"] = str(TESTDIR / "media")
+os.environ["DB_PATH"] = str(TESTDIR / "test.db")
+
+from fastapi.testclient import TestClient  # noqa: E402
+import main  # noqa: E402
+
+PASS, FAIL = 0, 0
+
+
+def check(label, cond, extra=""):
+    global PASS, FAIL
+    if cond:
+        PASS += 1
+        print(f"  PASS  {label}")
+    else:
+        FAIL += 1
+        print(f"  FAIL  {label} {extra}")
+
+
+with TestClient(main.app) as client:
+    print("\n== weekly template ==")
+    r = client.get("/api/weekly")
+    days = r.json()
+    check("7 seeded days", r.status_code == 200 and len(days) == 7, days)
+    check("Monday first", days[0]["day_name"] == "Monday")
+    check("Sunday last", days[6]["day_name"] == "Sunday")
+
+    r = client.patch("/api/weekly/0", json={"format": "JumperJump", "topic": "Celebrity"})
+    check("patch weekday", r.status_code == 200 and r.json()["format"] == "JumperJump", r.text)
+    check("weekday partial update leaves others",
+          client.get("/api/weekly").json()[1]["format"] == "")
+    r = client.patch("/api/weekly/9", json={"topic": "x"})
+    check("reject bad day_index", r.status_code == 400)
+
+    print("\n== content CRUD ==")
+    r = client.post("/api/content", json={
+        "topic": "Ancient Mysteries", "assigned_to": "Editor",
+        "status": "Scripting", "type": "Scripted",
+        "upload_date": "2026-07-15", "script": "Line one.",
+    })
+    check("create", r.status_code == 201, r.text)
+    cid = r.json()["id"]
+    check("fields persisted", r.json()["status"] == "Scripting"
+          and r.json()["upload_date"] == "2026-07-15")
+
+    r = client.post("/api/content", json={"topic": "Strange Science",
+                                          "upload_date": "2026-08-02",
+                                          "status": "Idea"})
+    cid2 = r.json()["id"]
+
+    r = client.patch(f"/api/content/{cid}", json={"status": "Editing"})
+    check("patch status", r.json()["status"] == "Editing")
+    check("patch left topic alone", r.json()["topic"] == "Ancient Mysteries")
+
+    r = client.post("/api/content", json={"topic": "  ", "status": "Idea"})
+    check("blank topic -> Untitled", r.json()["topic"] == "Untitled")
+    client.delete(f"/api/content/{r.json()['id']}")
+
+    r = client.post("/api/content", json={"topic": "x", "status": "Nonsense"})
+    check("reject invalid status", r.status_code == 422)
+
+    print("\n== search / filter / sort ==")
+    check("search hit", len(client.get("/api/content?search=Ancient").json()) == 1)
+    check("search miss", len(client.get("/api/content?search=zzzz").json()) == 0)
+    check("month filter Jul",
+          [c["id"] for c in client.get("/api/content?month=2026-07").json()] == [cid])
+    check("month filter Aug",
+          [c["id"] for c in client.get("/api/content?month=2026-08").json()] == [cid2])
+    check("status filter", len(client.get("/api/content?status=Editing").json()) == 1)
+    check("months list", set(client.get("/api/content/months").json()) ==
+          {"2026-07", "2026-08"})
+    check("sort by topic asc",
+          [c["topic"] for c in
+           client.get("/api/content?sort=topic&direction=asc").json()][0] == "Ancient Mysteries")
+    # A literal % must not behave as a wildcard.
+    client.post("/api/content", json={"topic": "100% real", "status": "Idea"})
+    check("LIKE escaping", len(client.get("/api/content?search=100%25 real").json()) == 1)
+    check("bad month rejected", client.get("/api/content?month=nonsense").status_code == 422)
+
+    print("\n== upload ==")
+    payload = os.urandom(3 * 1024 * 1024)  # 3 MiB of known bytes
+    r = client.put(f"/api/content/{cid}/media/final", content=payload,
+                   headers={"X-Filename": "final cut.mp4"})
+    check("upload final", r.status_code == 201, r.text)
+    mid = r.json()["id"]
+    check("size recorded", r.json()["size_bytes"] == len(payload))
+    check("mime guessed", r.json()["mime_type"] == "video/mp4", r.json()["mime_type"])
+
+    disk = TESTDIR / "media" / str(cid) / "final" / "final cut.mp4"
+    check("file on disk", disk.is_file())
+    check("bytes intact", disk.read_bytes() == payload)
+    check("no .part left", not list((disk.parent).glob("*.part")))
+
+    r = client.put(f"/api/content/{cid}/media/raw", content=b"rawdata",
+                   headers={"X-Filename": "b-roll.mov"})
+    check("upload raw", r.status_code == 201)
+    check("raw in own folder", (TESTDIR / "media" / str(cid) / "raw" / "b-roll.mov").is_file())
+
+    # Same name twice must not overwrite.
+    client.put(f"/api/content/{cid}/media/final", content=b"second",
+               headers={"X-Filename": "final cut.mp4"})
+    check("collision suffixed",
+          (TESTDIR / "media" / str(cid) / "final" / "final cut (2).mp4").is_file())
+
+    print("\n== upload rejections ==")
+    check("bad extension", client.put(f"/api/content/{cid}/media/final", content=b"x",
+          headers={"X-Filename": "notes.txt"}).status_code == 400)
+    check("bad kind", client.put(f"/api/content/{cid}/media/other", content=b"x",
+          headers={"X-Filename": "a.mp4"}).status_code == 400)
+    check("missing content", client.put("/api/content/99999/media/raw", content=b"x",
+          headers={"X-Filename": "a.mp4"}).status_code == 404)
+    check("empty body", client.put(f"/api/content/{cid}/media/raw", content=b"",
+          headers={"X-Filename": "empty.mp4"}).status_code == 400)
+
+    # Path traversal must be neutralised, not honoured.
+    r = client.put(f"/api/content/{cid}/media/raw", content=b"evil",
+                   headers={"X-Filename": "../../../../etc/pwned.mp4"})
+    check("traversal blocked", r.status_code == 201
+          and (TESTDIR / "media" / str(cid) / "raw" / "pwned.mp4").is_file()
+          and not Path("/etc/pwned.mp4").exists())
+
+    print("\n== range requests ==")
+    r = client.get(f"/api/media/{mid}/stream")
+    check("full GET 200", r.status_code == 200)
+    check("full body intact", r.content == payload)
+    check("Accept-Ranges advertised", r.headers.get("accept-ranges") == "bytes",
+          dict(r.headers))
+
+    r = client.get(f"/api/media/{mid}/stream", headers={"Range": "bytes=0-99"})
+    check("206 returned", r.status_code == 206, r.status_code)
+    check("100 bytes", len(r.content) == 100)
+    check("correct slice", r.content == payload[:100])
+    check("Content-Range header",
+          r.headers.get("content-range") == f"bytes 0-99/{len(payload)}",
+          r.headers.get("content-range"))
+
+    # Mid-file seek: the case that matters for scrubbing a long video.
+    start, end = 1_500_000, 1_500_099
+    r = client.get(f"/api/media/{mid}/stream", headers={"Range": f"bytes={start}-{end}"})
+    check("mid-file 206", r.status_code == 206)
+    check("mid-file slice correct", r.content == payload[start:end + 1])
+
+    r = client.get(f"/api/media/{mid}/stream", headers={"Range": "bytes=-100"})
+    check("suffix range", r.status_code == 206 and r.content == payload[-100:])
+
+    r = client.get(f"/api/media/{mid}/stream",
+                   headers={"Range": f"bytes={len(payload) + 500}-"})
+    check("416 unsatisfiable", r.status_code == 416, r.status_code)
+
+    print("\n== delete ==")
+    r = client.delete(f"/api/media/{mid}")
+    check("delete media 204", r.status_code == 204)
+    check("file gone from disk", not disk.is_file())
+    check("stream now 404", client.get(f"/api/media/{mid}/stream").status_code == 404)
+
+    detail = client.get(f"/api/content/{cid}").json()
+    check("detail lists media", isinstance(detail["raw"], list) and len(detail["raw"]) >= 2)
+    check("counts match", detail["raw_count"] == len(detail["raw"]))
+
+    tree = TESTDIR / "media" / str(cid)
+    check("tree exists pre-delete", tree.is_dir())
+    r = client.delete(f"/api/content/{cid}")
+    check("delete content 204", r.status_code == 204)
+    check("media tree removed", not tree.exists())
+    check("content gone", client.get(f"/api/content/{cid}").status_code == 404)
+    check("orphan media rows cascaded",
+          client.get(f"/api/content/{cid}").status_code == 404)
+
+    print("\n== misc ==")
+    check("config endpoint", client.get("/api/config").json()["media_root"].endswith("media"))
+    check("index served", client.get("/").status_code in (200, 404))
+
+shutil.rmtree(TESTDIR, ignore_errors=True)
+print(f"\n{'='*46}\n  {PASS} passed, {FAIL} failed\n{'='*46}")
+sys.exit(1 if FAIL else 0)

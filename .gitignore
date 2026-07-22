@@ -1,0 +1,15 @@
+.env
+.venv/
+media/
+content_hub.db
+content_hub.db-wal
+content_hub.db-shm
+__pycache__/
+*.pyc
+libs/
+
+# Test scratch
+_testrun/
+_uitest/
+_bigtest/
+*.part
