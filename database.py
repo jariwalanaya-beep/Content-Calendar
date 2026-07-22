@@ -135,7 +135,6 @@ CREATE TABLE IF NOT EXISTS content (
 
 CREATE INDEX IF NOT EXISTS idx_content_upload_date ON content(upload_date);
 CREATE INDEX IF NOT EXISTS idx_content_status      ON content(status);
-CREATE INDEX IF NOT EXISTS idx_content_deadline    ON content(done, deadline);
 
 -- One row per uploaded video file. Only the path RELATIVE to MEDIA_ROOT is
 -- stored, so the media folder can be moved or the drive remounted elsewhere
@@ -153,6 +152,13 @@ CREATE TABLE IF NOT EXISTS media_file (
 );
 
 CREATE INDEX IF NOT EXISTS idx_media_content ON media_file(content_id, kind);
+"""
+
+
+# Indexes over columns added by migrations. Kept out of SCHEMA so they are only
+# created once _migrate() has guaranteed the columns exist.
+POST_MIGRATION_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_content_deadline ON content(done, deadline);
 """
 
 
@@ -211,4 +217,8 @@ def init_db() -> None:
     with get_db() as conn:
         conn.executescript(SCHEMA)
         _seed_weekly_template(conn)
+        # Must run before the indexes below: on a database created by an older
+        # version, the columns they reference do not exist until _migrate adds
+        # them, and CREATE INDEX would fail with "no such column".
         _migrate(conn)
+        conn.executescript(POST_MIGRATION_INDEXES)

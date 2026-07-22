@@ -3,7 +3,7 @@
  *
  * Routes
  *   #/library            -> table view (default)
- *   #/library/board      -> kanban by Status
+ *   #/library/deadlines  -> assignments and editor deadlines
  *   #/library/calendar   -> month grid on Upload date
  *   #/library/month      -> list filtered to one month
  *   #/content/:id        -> detail page

@@ -5,7 +5,7 @@
      1. Tokens          colours, spacing, type — restyle the app from here
      2. Base + layout
      3. Components      buttons, chips, inputs, toasts, dialog
-     4. Views           table, board, calendar, detail, weekly
+     4. Views           table, deadlines, calendar, detail, weekly
 
    Status colours live in section 3 under "Chips" and mirror the enums in
    models.py. Adding a Status = add a .chip-<colour> rule there.
@@ -701,3 +701,8 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 /* Completed rows read as struck-through and recede. */
 .row-done { opacity: .55; }
 .row-done .topic-link { text-decoration: line-through; }
+
+/* The Done button is the point of this view, so unlike .row-actions in the
+   table it must always be visible, not revealed on hover. */
+.deadline-actions { text-align: right; white-space: nowrap; padding-right: 12px !important; }
+.deadline-actions .btn { opacity: 1; }

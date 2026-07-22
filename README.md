@@ -149,7 +149,10 @@ Every piece of content. Note the two name fields:
 Four views in a tab bar:
 
 - **Table** (default) — all entries, sortable by any column, fully inline-editable.
-- **Board** — kanban grouped by Status. Drag a card to another column to change it.
+- **Deadlines** — who is editing what and when it is due, soonest first. Overdue
+  and due-today rows are flagged. The Done button marks the edit complete and
+  clears the row from the list; it does **not** delete the entry. Use "Show
+  completed" to review or undo.
 - **Calendar** — month grid placing entries on their Upload date. Opens on the
   current month and follows the real date automatically; `‹ › Today` to navigate.
 - **This Month** — the same entries as a filtered list, also defaulting to the

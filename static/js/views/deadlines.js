@@ -118,7 +118,7 @@ export async function renderDeadlines(root, state) {
            item.done ? 'Completed' : due.text)),
       el('td', {}, selectCell(item.status, STATUSES,
                               v => save({ status: v }), { allowEmpty: false })),
-      el('td', { class: 'row-actions' }, doneBtn),
+      el('td', { class: 'deadline-actions' }, doneBtn),
     ));
   }
 
