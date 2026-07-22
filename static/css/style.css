@@ -680,3 +680,24 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 
 /* Title column in the table view */
 .col-title { min-width: 240px; }
+
+/* --- Deadlines view ------------------------------------------------------ */
+.due-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 6px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.due-badge::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor; flex: none;
+}
+.due-over  { background: #3a1e1e; color: #ff8f85; }   /* past due  */
+.due-today { background: #3d2a19; color: #f7ab72; }   /* due today */
+.due-soon  { background: #3a3218; color: #f2d17c; }   /* within 3 days */
+.due-ok    { background: #16301f; color: #6cd39a; }   /* comfortable */
+.due-none  { background: transparent; color: var(--text-faint); font-weight: 400; }
+.due-none::before { display: none; }
+
+/* Completed rows read as struck-through and recede. */
+.row-done { opacity: .55; }
+.row-done .topic-link { text-decoration: line-through; }

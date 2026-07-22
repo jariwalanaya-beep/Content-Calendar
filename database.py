@@ -16,7 +16,7 @@ import sqlite3
 from config import settings
 
 # Bump this when you change the schema, and add the matching migration below.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Monday-first, matching the weekly template layout.
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday",
@@ -122,6 +122,9 @@ CREATE TABLE IF NOT EXISTS content (
     type         TEXT,                          -- Scripted | Clips | Short Edit | NULL
     upload_date  TEXT,                          -- ISO 'YYYY-MM-DD'; drives the calendar view
     script       TEXT    NOT NULL DEFAULT '',
+    deadline     TEXT,                          -- ISO 'YYYY-MM-DD', the editor's due date
+    done         INTEGER NOT NULL DEFAULT 0,    -- 1 once the edit is signed off
+    done_at      TEXT,                          -- when Done was clicked
     board_order  REAL    NOT NULL DEFAULT 0,    -- sort position within its kanban column
     created_at   TEXT    NOT NULL,
     updated_at   TEXT    NOT NULL
@@ -132,6 +135,7 @@ CREATE TABLE IF NOT EXISTS content (
 
 CREATE INDEX IF NOT EXISTS idx_content_upload_date ON content(upload_date);
 CREATE INDEX IF NOT EXISTS idx_content_status      ON content(status);
+CREATE INDEX IF NOT EXISTS idx_content_deadline    ON content(done, deadline);
 
 -- One row per uploaded video file. Only the path RELATIVE to MEDIA_ROOT is
 -- stored, so the media folder can be moved or the drive remounted elsewhere
@@ -184,6 +188,16 @@ def _migrate(conn: sqlite3.Connection) -> None:
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(content)")}
         if "title" not in cols:
             conn.execute("ALTER TABLE content ADD COLUMN title TEXT NOT NULL DEFAULT ''")
+
+    # v2 -> v3: editor deadline plus a done flag, for the Deadlines view.
+    if current < 3:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(content)")}
+        if "deadline" not in cols:
+            conn.execute("ALTER TABLE content ADD COLUMN deadline TEXT")
+        if "done" not in cols:
+            conn.execute("ALTER TABLE content ADD COLUMN done INTEGER NOT NULL DEFAULT 0")
+        if "done_at" not in cols:
+            conn.execute("ALTER TABLE content ADD COLUMN done_at TEXT")
 
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 

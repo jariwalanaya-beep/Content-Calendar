@@ -95,6 +95,8 @@ export async function renderDetail(root, id) {
                                     { placeholder: 'Editor name' })),
       field('Upload date', textCell(item.upload_date, v => save({ upload_date: v }),
                                     { type: 'date' })),
+      field('Deadline',    textCell(item.deadline, v => save({ deadline: v }),
+                                    { type: 'date' })),
       field('Notes',       autoSaveArea(item.notes, 'notes-area',
                                         'Anything worth remembering…',
                                         v => save({ notes: v }))),

@@ -100,9 +100,10 @@ class ContentCreate(BaseModel):
     status: Status = Status.IDEA
     type: ContentType | None = None
     upload_date: date | None = None
+    deadline: date | None = None
     script: str = ""
 
-    @field_validator("upload_date", mode="before")
+    @field_validator("upload_date", "deadline", mode="before")
     @classmethod
     def _empty_string_is_null(cls, v):
         return None if v == "" else v
@@ -135,10 +136,12 @@ class ContentUpdate(BaseModel):
     status: Status | None = None
     type: ContentType | None = None
     upload_date: date | None = None
+    deadline: date | None = None
     script: str | None = None
     board_order: float | None = None
+    done: bool | None = None
 
-    @field_validator("upload_date", mode="before")
+    @field_validator("upload_date", "deadline", mode="before")
     @classmethod
     def _empty_string_is_null(cls, v):
         return None if v == "" else v
@@ -181,6 +184,9 @@ class Content(BaseModel):
     status: Status
     type: ContentType | None
     upload_date: str | None
+    deadline: str | None = None
+    done: bool = False
+    done_at: str | None = None
     script: str
     board_order: float
     created_at: str

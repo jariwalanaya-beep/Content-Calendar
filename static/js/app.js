@@ -16,7 +16,7 @@
 import { api } from './api.js';
 import { currentMonth, clear, el, toast, formatBytes } from './ui.js';
 import { renderTable }    from './views/table.js';
-import { renderBoard }    from './views/board.js';
+import { renderDeadlines } from './views/deadlines.js';
 import { renderCalendar } from './views/calendar.js';
 import { renderMonth }    from './views/month.js';
 import { renderDetail }   from './views/detail.js';
@@ -48,7 +48,7 @@ function parseHash() {
 
 const LIBRARY_TABS = [
   { id: 'table',    label: 'Table',      hash: '#/library' },
-  { id: 'board',    label: 'Board',      hash: '#/library/board' },
+  { id: 'deadlines', label: 'Deadlines', hash: '#/library/deadlines' },
   { id: 'calendar', label: 'Calendar',   hash: '#/library/calendar' },
   { id: 'month',    label: 'This Month', hash: '#/library/month' },
 ];
@@ -89,7 +89,7 @@ async function route() {
     // Library views, all sharing the tab bar.
     const tab = parts[1] || 'table';
     const renderers = {
-      table: renderTable, board: renderBoard,
+      table: renderTable, deadlines: renderDeadlines,
       calendar: renderCalendar, month: renderMonth,
     };
     const render = renderers[tab] || renderTable;

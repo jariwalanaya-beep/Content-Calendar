@@ -21,7 +21,7 @@ router = APIRouter(prefix="/content", tags=["content"])
 # from user input, because column names cannot be passed as SQL parameters.
 SORTABLE = {
     "topic", "title", "assigned_to", "performance", "status", "type",
-    "upload_date", "created_at", "updated_at",
+    "upload_date", "deadline", "created_at", "updated_at",
 }
 
 
@@ -37,6 +37,9 @@ def _row_to_content(row: sqlite3.Row) -> Content:
         status=row["status"],
         type=row["type"],
         upload_date=row["upload_date"],
+        deadline=row["deadline"] if "deadline" in row.keys() else None,
+        done=bool(row["done"]) if "done" in row.keys() else False,
+        done_at=row["done_at"] if "done_at" in row.keys() else None,
         script=row["script"],
         board_order=row["board_order"],
         created_at=row["created_at"],
@@ -63,6 +66,8 @@ def list_content(
     month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$",
                               description="Filter by upload_date month, 'YYYY-MM'"),
     status: str | None = Query(None, description="Exact Status match"),
+    done: bool | None = Query(None, description="Filter by the done flag"),
+    has_deadline: bool = Query(False, description="Only entries that have a deadline"),
     sort: str = Query("updated_at", description=f"One of: {', '.join(sorted(SORTABLE))}"),
     direction: str = Query("desc", pattern="^(?i)(asc|desc)$"),
     conn: sqlite3.Connection = Depends(db_dependency),
@@ -94,6 +99,13 @@ def list_content(
     if status:
         where.append("c.status = ?")
         params.append(status)
+
+    if done is not None:
+        where.append("c.done = ?")
+        params.append(1 if done else 0)
+
+    if has_deadline:
+        where.append("c.deadline IS NOT NULL AND c.deadline <> ''")
 
     sql = _BASE_SELECT
     if where:
@@ -165,8 +177,8 @@ def create_content(
     cur = conn.execute(
         """INSERT INTO content
              (topic, title, assigned_to, notes, performance, status, type,
-              upload_date, script, board_order, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+              upload_date, deadline, script, board_order, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             payload.topic,
             payload.title,
@@ -176,6 +188,7 @@ def create_content(
             payload.status.value,
             payload.type.value if payload.type else None,
             payload.upload_date.isoformat() if payload.upload_date else None,
+            payload.deadline.isoformat() if payload.deadline else None,
             payload.script,
             min_order - 1,
             now, now,
@@ -214,6 +227,11 @@ def update_content(
             value = value.isoformat()
         assignments.append(f"{key} = ?")
         params.append(value)
+
+    # Stamp when Done was toggled, and clear it when reopened.
+    if "done" in fields:
+        assignments.append("done_at = ?")
+        params.append(utc_now_iso() if fields["done"] else None)
 
     assignments.append("updated_at = ?")
     params.extend([utc_now_iso(), content_id])
