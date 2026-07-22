@@ -94,8 +94,8 @@ from system packages with no symlinks involved. It also sidesteps PEP 668, which
 blocks installing into Ubuntu's system Python.
 
 If you ever reformat this drive to ext4, a normal `python3 -m venv .venv` will
-work and you can delete `libs/`. See `format_drive.sh` — but note that formatting
-**erases the whole drive**, so copy this folder somewhere else first.
+work and you can delete `libs/`. Formatting **erases the whole drive**, so copy
+this folder somewhere else first.
 
 ---
 
@@ -155,7 +155,8 @@ Four views in a tab bar:
 - **This Month** — the same entries as a filtered list, also defaulting to the
   current month, with a picker to jump to any other.
 
-Search by topic from the top bar (or press `/` to focus it, `Esc` to clear).
+Search from the top bar — it matches both Topic and Title. Press `/` to focus it,
+`Esc` to clear.
 
 ### Colour coding
 Matches Notion: Idea grey · Scripting yellow · Editing orange · Ready blue ·
