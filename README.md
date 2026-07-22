@@ -149,7 +149,8 @@ Every piece of content. Note the two name fields:
 Four views in a tab bar:
 
 - **Table** (default) — all entries, sortable by any column, fully inline-editable.
-- **Deadlines** — who is editing what and when it is due, soonest first. Overdue
+- **Deadlines** — only entries with someone in **Assigned to**, so it stays a
+  list of other people's outstanding work rather than everything. Soonest first, overdue
   and due-today rows are flagged. The Done button marks the edit complete and
   clears the row from the list; it does **not** delete the entry. Use "Show
   completed" to review or undo.

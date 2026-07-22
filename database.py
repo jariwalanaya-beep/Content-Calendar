@@ -56,13 +56,15 @@ def connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     # Required for ON DELETE CASCADE to actually fire; SQLite defaults it OFF.
     conn.execute("PRAGMA foreign_keys = ON")
-    # WAL gives concurrent reads during a write and survives unclean shutdowns.
-    # This requires a filesystem with real POSIX locking — fine on ext4, which is
-    # why the storage drive was formatted ext4 rather than left on exFAT.
-    conn.execute("PRAGMA journal_mode = WAL")
-    # Flush the WAL at transaction boundaries but not on every write: the right
-    # durability/speed tradeoff for a local single-user app.
-    conn.execute("PRAGMA synchronous = NORMAL")
+    # Rollback journal rather than WAL. WAL needs a shared-memory (-shm) file and
+    # real POSIX locking to coordinate connections; exFAT provides neither, and
+    # SQLite still reports "wal" when you ask for it, so the breakage would be
+    # silent. Its only benefit is concurrent readers during a write, which is
+    # meaningless for a single local user.
+    conn.execute("PRAGMA journal_mode = DELETE")
+    # FULL rather than NORMAL: this drive is USB-attached and can be unplugged,
+    # and exFAT has no journal of its own to fall back on.
+    conn.execute("PRAGMA synchronous = FULL")
     return conn
 
 

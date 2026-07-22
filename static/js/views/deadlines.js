@@ -42,9 +42,12 @@ export async function renderDeadlines(root, state) {
   const spinner = loading();
   root.append(spinner);
 
+  // Only entries actually assigned to someone. This view is about tracking
+  // other people's work, so unassigned ideas would just be noise.
   const items = await api.listContent({
     search: state.search,
     done: showCompleted ? true : false,
+    assigned: true,
     sort: 'deadline', direction: 'asc',
   });
   spinner.remove();
@@ -63,7 +66,11 @@ export async function renderDeadlines(root, state) {
   root.append(el('div', { class: 'view-header' },
     el('h1', { class: 'view-title' }, showCompleted ? 'Completed' : 'Deadlines'),
     el('span', { class: 'view-sub' },
-      `${items.length} ${items.length === 1 ? 'entry' : 'entries'}`),
+      (() => {
+        const people = new Set(items.map(i => i.assigned_to.trim()).filter(Boolean));
+        return `${items.length} assigned` +
+               (people.size ? ` across ${people.size} ${people.size === 1 ? 'person' : 'people'}` : '');
+      })()),
     overdue ? el('span', { class: 'chip chip-red' }, `${overdue} overdue`) : null,
     el('span', { class: 'spacer' }),
     el('button', {
@@ -79,9 +86,10 @@ export async function renderDeadlines(root, state) {
     root.append(emptyState(
       showCompleted ? '✅' : '🎯',
       showCompleted ? 'Nothing completed yet'
-                    : 'No open work',
+                    : 'Nothing assigned',
       showCompleted ? 'Rows you mark Done will collect here.'
-                    : 'Set an Assigned to and Deadline on an entry and it appears here.'));
+                    : 'Only entries with someone in “Assigned to” appear here. '
+                      + 'Set an assignee on an entry and it shows up.'));
     return;
   }
 

@@ -68,6 +68,7 @@ def list_content(
     status: str | None = Query(None, description="Exact Status match"),
     done: bool | None = Query(None, description="Filter by the done flag"),
     has_deadline: bool = Query(False, description="Only entries that have a deadline"),
+    assigned: bool = Query(False, description="Only entries with someone in Assigned to"),
     sort: str = Query("updated_at", description=f"One of: {', '.join(sorted(SORTABLE))}"),
     direction: str = Query("desc", pattern="^(?i)(asc|desc)$"),
     conn: sqlite3.Connection = Depends(db_dependency),
@@ -106,6 +107,11 @@ def list_content(
 
     if has_deadline:
         where.append("c.deadline IS NOT NULL AND c.deadline <> ''")
+
+    # The Deadlines view is an assignment tracker, so unassigned entries are
+    # noise there. TRIM guards against a name that is only whitespace.
+    if assigned:
+        where.append("TRIM(COALESCE(c.assigned_to, '')) <> ''")
 
     sql = _BASE_SELECT
     if where:
