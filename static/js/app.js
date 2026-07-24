@@ -34,6 +34,11 @@ export const state = {
   search: '',
   sort: 'updated_at',
   direction: 'desc',
+  // Table view column filters. Empty string means "no filter" for each; they
+  // are independent of `month` above, which the calendar/month views own.
+  filters: {
+    status: '', type: '', performance: '', month: '', has_media: false,
+  },
 };
 
 const viewRoot = () => document.getElementById('view');

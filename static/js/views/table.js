@@ -6,8 +6,11 @@
 import { api } from '../api.js';
 import {
   el, textCell, selectCell, emptyState, loading, toast, confirmDialog,
-  STATUSES, PERFORMANCES, TYPES,
+  formatMonth, STATUSES, PERFORMANCES, TYPES,
 } from '../ui.js';
+
+/** Refresh the current route after a filter changes. */
+const rerender = () => import('../app.js').then(m => m.refresh());
 
 const COLUMNS = [
   { key: 'topic',       label: 'Topic',       sortable: true,  cls: 'col-topic' },
@@ -22,25 +25,40 @@ const COLUMNS = [
 ];
 
 export async function renderTable(root, state) {
+  const f = state.filters;
   const spinner = loading();
   root.append(spinner);
 
-  const items = await api.listContent({
-    search: state.search, sort: state.sort, direction: state.direction,
-  });
+  const [items, months] = await Promise.all([
+    api.listContent({
+      search: state.search, sort: state.sort, direction: state.direction,
+      status: f.status, type: f.type, performance: f.performance,
+      month: f.month, has_media: f.has_media || undefined,
+    }),
+    api.listMonths(),
+  ]);
   spinner.remove();
+
+  const activeCount =
+    (f.status ? 1 : 0) + (f.type ? 1 : 0) + (f.performance ? 1 : 0) +
+    (f.month ? 1 : 0) + (f.has_media ? 1 : 0);
+  const narrowed = activeCount > 0 || !!state.search;
 
   root.append(el('div', { class: 'view-header' },
     el('h1', { class: 'view-title' }, 'Content Library'),
     el('span', { class: 'view-sub' },
       `${items.length} ${items.length === 1 ? 'entry' : 'entries'}` +
-      (state.search ? ` matching “${state.search}”` : '')),
+      (state.search ? ` matching “${state.search}”` : '') +
+      (activeCount ? ` · ${activeCount} filter${activeCount === 1 ? '' : 's'}` : '')),
   ));
+
+  root.append(filterBar(state, months));
 
   if (!items.length) {
     root.append(emptyState('📋',
-      state.search ? 'No entries match that search' : 'No entries yet',
-      state.search ? 'Try a different topic.' : 'Hit + New to create your first one.'));
+      narrowed ? 'No entries match these filters' : 'No entries yet',
+      narrowed ? 'Try loosening or clearing the filters above.'
+               : 'Hit + New to create your first one.'));
     return;
   }
 
@@ -129,4 +147,58 @@ export async function renderTable(root, state) {
 
   root.append(el('div', { class: 'table-wrap' },
     el('table', { class: 'grid' }, el('thead', {}, headRow), body)));
+}
+
+
+/* ------------------------------------------------------------------------- *
+ * Filter bar — column filters that map straight onto list_content's query
+ * params. Each dropdown writes into state.filters and re-renders the view.
+ * ------------------------------------------------------------------------- */
+
+function filterBar(state, months) {
+  const f = state.filters;
+
+  // One labelled dropdown. `options` is an array of {value, label}; the empty
+  // value is the "all" entry pinned at the top.
+  const select = (label, key, allLabel, options) => {
+    const sel = el('select', { class: 'filter-select' },
+      el('option', { value: '' }, allLabel),
+      options.map(o => el('option', { value: o.value }, o.label)));
+    sel.value = f[key] || '';
+    sel.addEventListener('change', () => { f[key] = sel.value; rerender(); });
+    return el('label', { class: 'filter-field' },
+      el('span', { class: 'filter-label' }, label), sel);
+  };
+
+  // Enum vocabularies use the same string for value and label.
+  const opt = arr => arr.map(x => ({ value: x.value, label: x.value }));
+
+  // Media presence maps a two-state select onto the has_media boolean.
+  const media = el('select', { class: 'filter-select' },
+    el('option', { value: '' }, 'Any'),
+    el('option', { value: 'yes' }, 'Has video'));
+  media.value = f.has_media ? 'yes' : '';
+  media.addEventListener('change', () => {
+    f.has_media = media.value === 'yes'; rerender();
+  });
+
+  const active = f.status || f.type || f.performance || f.month || f.has_media;
+
+  return el('div', { class: 'filter-bar' },
+    select('Status', 'status', 'All statuses', opt(STATUSES)),
+    select('Type', 'type', 'All types', opt(TYPES)),
+    select('Performance', 'performance', 'All performance', opt(PERFORMANCES)),
+    select('Month', 'month', 'All months',
+           months.map(m => ({ value: m, label: formatMonth(m) }))),
+    el('label', { class: 'filter-field' },
+      el('span', { class: 'filter-label' }, 'Media'), media),
+    active ? el('button', {
+      class: 'btn btn-ghost btn-sm filter-clear',
+      onclick: () => {
+        f.status = ''; f.type = ''; f.performance = '';
+        f.month = ''; f.has_media = false;
+        rerender();
+      },
+    }, '✕ Clear') : null,
+  );
 }

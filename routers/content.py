@@ -66,8 +66,11 @@ def list_content(
     month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$",
                               description="Filter by upload_date month, 'YYYY-MM'"),
     status: str | None = Query(None, description="Exact Status match"),
+    type_: str | None = Query(None, alias="type", description="Exact Type match"),
+    performance: str | None = Query(None, description="Exact Performance match"),
     done: bool | None = Query(None, description="Filter by the done flag"),
     has_deadline: bool = Query(False, description="Only entries that have a deadline"),
+    has_media: bool = Query(False, description="Only entries with at least one video"),
     assigned: bool = Query(False, description="Only entries with someone in Assigned to"),
     sort: str = Query("updated_at", description=f"One of: {', '.join(sorted(SORTABLE))}"),
     direction: str = Query("desc", pattern="^(?i)(asc|desc)$"),
@@ -101,6 +104,14 @@ def list_content(
         where.append("c.status = ?")
         params.append(status)
 
+    if type_:
+        where.append("c.type = ?")
+        params.append(type_)
+
+    if performance:
+        where.append("c.performance = ?")
+        params.append(performance)
+
     if done is not None:
         where.append("c.done = ?")
         params.append(1 if done else 0)
@@ -117,6 +128,11 @@ def list_content(
     if where:
         sql += " WHERE " + " AND ".join(where)
     sql += " GROUP BY c.id"
+
+    # Media presence is a property of the aggregated counts, so it filters with
+    # HAVING rather than WHERE, which cannot see the SUM() columns.
+    if has_media:
+        sql += " HAVING (raw_count + final_count) > 0"
 
     sort_col = sort if sort in SORTABLE else "updated_at"
     sort_dir = "ASC" if direction.lower() == "asc" else "DESC"

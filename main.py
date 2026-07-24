@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from config import settings
@@ -23,6 +23,23 @@ from database import init_db
 from routers import content, media, weekly
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+# Browsers apply "heuristic caching" to responses with no Cache-Control header
+# and can silently serve week-old JS after the code has changed. `no-cache`
+# does NOT disable caching — it makes the browser revalidate with the server
+# each time, getting a cheap 304 when the file is unchanged and the new bytes
+# the moment it isn't. Right choice for a local app where staleness costs more
+# than a localhost round trip.
+_NO_CACHE = "no-cache"
+
+
+class RevalidatedStaticFiles(StaticFiles):
+    """StaticFiles that tells the browser to revalidate instead of guessing."""
+
+    def file_response(self, *args, **kwargs) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = _NO_CACHE
+        return response
 
 
 @asynccontextmanager
@@ -78,11 +95,12 @@ def read_config() -> dict:
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     """Serve the single-page app."""
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(STATIC_DIR / "index.html",
+                        headers={"Cache-Control": _NO_CACHE})
 
 
 # Mounted last so it cannot shadow any /api route.
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/static", RevalidatedStaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.exception_handler(404)
@@ -94,7 +112,8 @@ async def spa_fallback(request, exc):
     if request.url.path.startswith("/api/"):
         return JSONResponse({"detail": getattr(exc, "detail", "Not found")},
                             status_code=404)
-    return FileResponse(STATIC_DIR / "index.html", status_code=200)
+    return FileResponse(STATIC_DIR / "index.html", status_code=200,
+                        headers={"Cache-Control": _NO_CACHE})
 
 
 if __name__ == "__main__":
