@@ -84,7 +84,7 @@ function barCard(title, counts, { hideZero = false, empty = 'No data yet' } = {}
  * `contiguous` is the histogram variant: adjacent bins touch, separated only
  * by a 2px surface gap, because the x-axis is one continuous scale.
  */
-function columnCard(title, counts, { wide = false, contiguous = false,
+function columnCard(title, counts, { wide = false, mid = false, contiguous = false,
                                      empty = 'No data yet' } = {}) {
   const entries = Object.entries(counts);
   const card = el('div', { class: `chart-card${wide ? ' chart-wide' : ''}` },
@@ -94,10 +94,11 @@ function columnCard(title, counts, { wide = false, contiguous = false,
     return card;
   }
 
-  // The viewBox tracks the rendered size (a ~400px card, or the full page for
-  // the wide variant) so SVG units stay near 1:1 CSS pixels and the axis text
-  // renders at its intended size instead of scaling down.
-  const W = wide ? 1240 : 400, H = 190, padL = 30, padR = 8, padT = 18, padB = 24;
+  // The viewBox tracks the rendered size (a ~400px card, ~700px for `mid`,
+  // or the full page for `wide`) so SVG units stay near 1:1 CSS pixels and
+  // the axis text renders at its intended size instead of scaling down.
+  const W = wide ? 1240 : mid ? 610 : 400,
+        H = 190, padL = 30, padR = 8, padT = 18, padB = 24;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const base = padT + plotH;
   const max = Math.max(...entries.map(([, n]) => n));
@@ -171,14 +172,16 @@ function splinePath(pts, yMin, yMax) {
 
 /**
  * Line chart card. `smooth` draws a spline instead of straight segments;
- * `area` fills down to the baseline (for cumulative/total series).
+ * `area` fills down to the baseline (for cumulative/total series). Values may
+ * go negative (momentum); the zero line is then drawn a shade stronger.
+ * `zeroOk` keeps an all-zero series as a flat line instead of the empty state.
  */
 function lineCard(title, counts, { wide = false, smooth = false, area = false,
-                                   empty = 'No data yet' } = {}) {
+                                   zeroOk = false, empty = 'No data yet' } = {}) {
   const entries = Object.entries(counts);
   const card = el('div', { class: `chart-card${wide ? ' chart-wide' : ''}` },
     el('div', { class: 'chart-title' }, title));
-  if (!entries.length || entries.every(([, n]) => n === 0)) {
+  if (!entries.length || (!zeroOk && entries.every(([, n]) => n === 0))) {
     card.append(el('div', { class: 'chart-empty' }, empty));
     return card;
   }
@@ -186,11 +189,14 @@ function lineCard(title, counts, { wide = false, smooth = false, area = false,
   const W = wide ? 1240 : 610, H = 190, padL = 30, padR = 30, padT = 18, padB = 24;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const base = padT + plotH;
-  const max = Math.max(...entries.map(([, n]) => n));
+  const nums = entries.map(([, n]) => n);
+  const max = Math.max(...nums, 1);
+  const min = Math.min(0, ...nums);
+  const yFor = v => base - ((v - min) / (max - min)) * plotH;
   const step = entries.length > 1 ? plotW / (entries.length - 1) : 0;
   const pts = entries.map(([label, n], i) => ({
     x: entries.length > 1 ? padL + i * step : padL + plotW / 2,
-    y: base - (n / max) * plotH, label, n,
+    y: yFor(n), label, n,
   }));
 
   const chart = svg('svg', {
@@ -198,11 +204,13 @@ function lineCard(title, counts, { wide = false, smooth = false, area = false,
     role: 'img', 'aria-label': title,
   });
 
-  const ticks = max >= 4 ? [0, Math.round(max / 2), max] : [0, max];
+  const ticks = min < 0 ? [min, 0, max]
+    : max >= 4 ? [0, Math.round(max / 2), max] : [0, max];
   for (const t of [...new Set(ticks)]) {
-    const y = base - (t / max) * plotH;
+    const y = yFor(t);
     chart.append(
-      svg('line', { x1: padL, x2: W - padR, y1: y, y2: y, class: 'gridline' }),
+      svg('line', { x1: padL, x2: W - padR, y1: y, y2: y,
+                    class: t === 0 && min < 0 ? 'gridline zeroline' : 'gridline' }),
       svg('text', { x: padL - 6, y: y + 3, 'text-anchor': 'end',
                     class: 'axis-label' }, t));
   }
@@ -305,22 +313,6 @@ function radarCard(title, counts, { empty = 'No data yet' } = {}) {
   return card;
 }
 
-/** Bucket numeric values into equal bins with round edges, for a histogram. */
-function histogramBins(values) {
-  const max = Math.max(...values);
-  // Bin width snapped to 1/2/5 × 10ⁿ so edges land on round numbers.
-  const raw = Math.max(1, (max + 1) / 6);
-  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const width = [1, 2, 5, 10].map(m => m * mag).find(w => w >= raw);
-  const bins = {};
-  for (let lo = 0; lo <= max; lo += width) bins[`${lo}–${lo + width - 1}`] = 0;
-  for (const v of values) {
-    const lo = Math.floor(v / width) * width;
-    bins[`${lo}–${lo + width - 1}`]++;
-  }
-  return bins;
-}
-
 /** Donut showing how much of the assigned work is signed off. */
 function donutCard(done, total) {
   const pct = total ? Math.round((done / total) * 100) : 0;
@@ -375,25 +367,53 @@ function fillMonthRange(byMonth) {
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-/**
- * Cumulative library size at the end of each day, from creation dates —
- * the total-so-far curve the growth area chart plots. Runs up to today, so
- * a quiet stretch shows as a plateau instead of the curve just stopping.
- */
-function growthByDay(items) {
-  const days = items.map(i => i.created_at.slice(0, 10)).sort();
+/** Uploads per week (Monday-keyed, gap weeks kept as zero). */
+function uploadsByWeek(items) {
+  const days = items.filter(i => i.upload_date).map(i => i.upload_date).sort();
   if (!days.length) return {};
+  const monday = isoDay => {
+    const d = new Date(isoDay + 'T00:00:00');
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d;
+  };
   const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` +
                    `-${String(d.getDate()).padStart(2, '0')}`;
-  const out = {};
-  const today = iso(new Date());
-  let total = 0, next = 0;
-  for (const d = new Date(days[0] + 'T00:00:00'); ; d.setDate(d.getDate() + 1)) {
-    const day = iso(d);
-    while (next < days.length && days[next] <= day) { total++; next++; }
-    out[d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })] = total;
-    if (day >= today) break;
+  const byWeek = {};
+  for (const day of days) {
+    const k = iso(monday(day));
+    byWeek[k] = (byWeek[k] || 0) + 1;
   }
+  const out = {};
+  const last = monday(days[days.length - 1]);
+  for (const w = monday(days[0]); w <= last; w.setDate(w.getDate() + 7)) {
+    out[w.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })] =
+      byWeek[iso(w)] || 0;
+  }
+  return out;
+}
+
+/**
+ * Channel momentum: each rated video moves a running score — Viral +1,
+ * Average holds, Failed −1 — so a viral streak climbs and flops pull it down.
+ * One point per rated video, in upload order.
+ */
+function momentum(items) {
+  const rated = items
+    .filter(i => i.performance)
+    .sort((a, b) => {
+      const da = a.upload_date || a.created_at.slice(0, 10);
+      const db = b.upload_date || b.created_at.slice(0, 10);
+      return da < db ? -1 : da > db ? 1 : a.id - b.id;
+    });
+  const out = {};
+  let score = 0;
+  rated.forEach((v, i) => {
+    score += v.performance === 'Viral' ? 1 : v.performance === 'Failed' ? -1 : 0;
+    const d = new Date((v.upload_date || v.created_at.slice(0, 10)) + 'T00:00:00');
+    // The index prefix keeps same-day keys unique and reads as video order.
+    out[`${i + 1} · ${d.toLocaleDateString(undefined,
+        { month: 'short', day: 'numeric' })}`] = score;
+  });
   return out;
 }
 
