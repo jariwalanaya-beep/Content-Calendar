@@ -39,9 +39,10 @@ export const api = {
   /* --- meta --- */
   config: () => req('/api/config'),
 
-  /* --- weekly template --- */
-  getWeek: () => req('/api/weekly'),
-  updateDay: (dayIndex, patch) => req(`/api/weekly/${dayIndex}`, {
+  /* --- weekly plan --- */
+  // `week` is any ISO date inside the wanted week; omitted = current week.
+  getWeek: week => req(`/api/weekly${qs({ week })}`),
+  updateDay: (dayIndex, patch, week) => req(`/api/weekly/${dayIndex}${qs({ week })}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),

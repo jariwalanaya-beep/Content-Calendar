@@ -9,14 +9,14 @@ Schema changes: bump SCHEMA_VERSION and add a migration step in `_migrate()`.
 """
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Iterator
 import sqlite3
 
 from config import settings
 
 # Bump this when you change the schema, and add the matching migration below.
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 6
 
 # Monday-first, matching the weekly template layout.
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday",
@@ -96,32 +96,36 @@ def db_dependency() -> Iterator[sqlite3.Connection]:
 # Schema
 # --------------------------------------------------------------------------- #
 
-SCHEMA = """
--- The weekly recurring production template. Exactly 7 rows, one per weekday,
--- seeded on first run. This is a repeating format template, NOT tied to dates,
--- which is why there is no date column and rows are never inserted or deleted.
+# The weekly plan. One set of 7 rows per week, keyed by that week's Monday
+# (`week_start`). Weeks are created lazily the first time they are viewed, so
+# navigating to any past or future week just works.
+WEEKLY_TABLE = """
 CREATE TABLE IF NOT EXISTS weekly_template (
     id              INTEGER PRIMARY KEY,
-    day_index       INTEGER NOT NULL UNIQUE,   -- 0=Monday .. 6=Sunday, drives ordering
+    week_start      TEXT    NOT NULL,          -- ISO Monday 'YYYY-MM-DD' of this week
+    day_index       INTEGER NOT NULL,          -- 0=Monday .. 6=Sunday, drives ordering
     day_name        TEXT    NOT NULL,
     format          TEXT    NOT NULL DEFAULT '',
     content_idea    TEXT    NOT NULL DEFAULT '',
     topic           TEXT    NOT NULL DEFAULT '',
     assigned_to     TEXT    NOT NULL DEFAULT '',
     editor_deadline TEXT,                      -- ISO date 'YYYY-MM-DD', nullable
-    updated_at      TEXT    NOT NULL
+    updated_at      TEXT    NOT NULL,
+    UNIQUE (week_start, day_index)
 );
+"""
+
+SCHEMA = WEEKLY_TABLE + """
 
 -- Every piece of content in the pipeline.
 CREATE TABLE IF NOT EXISTS content (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     topic        TEXT    NOT NULL DEFAULT 'Untitled',
-    title        TEXT    NOT NULL DEFAULT '',   -- published/video title, separate from the internal topic
     assigned_to  TEXT    NOT NULL DEFAULT '',
     notes        TEXT    NOT NULL DEFAULT '',
     performance  TEXT,                          -- Viral | Average | Failed | NULL
     status       TEXT    NOT NULL DEFAULT 'Idea',  -- Idea|Scripting|Editing|Ready|Posted|Failed
-    type         TEXT,                          -- Scripted | Clips | Short Edit | NULL
+    type         TEXT,                          -- Scripted | Clips | NULL
     upload_date  TEXT,                          -- ISO 'YYYY-MM-DD'; drives the calendar view
     script       TEXT    NOT NULL DEFAULT '',
     deadline     TEXT,                          -- ISO 'YYYY-MM-DD', the editor's due date
@@ -164,16 +168,29 @@ CREATE INDEX IF NOT EXISTS idx_content_deadline ON content(done, deadline);
 """
 
 
-def _seed_weekly_template(conn: sqlite3.Connection) -> None:
-    """Insert the seven weekday rows if they are not already there."""
-    existing = conn.execute("SELECT COUNT(*) AS n FROM weekly_template").fetchone()["n"]
+def monday_of(d: date) -> str:
+    """ISO date of the Monday of the week containing `d` — the week's key."""
+    return (d - timedelta(days=d.weekday())).isoformat()
+
+
+def ensure_week(conn: sqlite3.Connection, week_start: str) -> None:
+    """
+    Insert the seven weekday rows for one week if they do not exist yet.
+
+    Called lazily from the weekly router whenever a week is viewed, so paging
+    to any week — past or future — materialises it on first access.
+    """
+    existing = conn.execute(
+        "SELECT COUNT(*) AS n FROM weekly_template WHERE week_start = ?",
+        (week_start,),
+    ).fetchone()["n"]
     if existing:
         return
     now = utc_now_iso()
     conn.executemany(
-        """INSERT INTO weekly_template (day_index, day_name, updated_at)
-           VALUES (?, ?, ?)""",
-        [(i, name, now) for i, name in enumerate(DAY_NAMES)],
+        """INSERT INTO weekly_template (week_start, day_index, day_name, updated_at)
+           VALUES (?, ?, ?, ?)""",
+        [(week_start, i, name, now) for i, name in enumerate(DAY_NAMES)],
     )
 
 
@@ -207,6 +224,30 @@ def _migrate(conn: sqlite3.Connection) -> None:
         if "done_at" not in cols:
             conn.execute("ALTER TABLE content ADD COLUMN done_at TEXT")
 
+    # v3 -> v4: the weekly template becomes per-week. The old table had a
+    # UNIQUE(day_index) constraint that SQLite cannot drop in place, so the
+    # table is rebuilt and the old single template becomes the current week.
+    if current < 4:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(weekly_template)")}
+        if "week_start" not in cols:
+            conn.execute("ALTER TABLE weekly_template RENAME TO weekly_template_v3")
+            conn.executescript(WEEKLY_TABLE)
+            conn.execute(
+                """INSERT INTO weekly_template
+                       (week_start, day_index, day_name, format, content_idea,
+                        topic, assigned_to, editor_deadline, updated_at)
+                   SELECT ?, day_index, day_name, format, content_idea,
+                          topic, assigned_to, editor_deadline, updated_at
+                   FROM weekly_template_v3""",
+                (monday_of(date.today()),),
+            )
+            conn.execute("DROP TABLE weekly_template_v3")
+
+    # v4 -> v5: the 'Short Edit' content type was retired. Any row still using
+    # it becomes untyped rather than failing response validation.
+    if current < 5:
+        conn.execute("UPDATE content SET type = NULL WHERE type = 'Short Edit'")
+
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
@@ -218,9 +259,11 @@ def init_db() -> None:
     settings.ensure_directories()
     with get_db() as conn:
         conn.executescript(SCHEMA)
-        _seed_weekly_template(conn)
-        # Must run before the indexes below: on a database created by an older
+        # Must run before the steps below: on a database created by an older
         # version, the columns they reference do not exist until _migrate adds
-        # them, and CREATE INDEX would fail with "no such column".
+        # them, and the INSERT / CREATE INDEX would fail with "no such column".
         _migrate(conn)
+        # Seed the current week so a brand-new database opens with rows to edit.
+        # Other weeks are created on demand by the weekly router.
+        ensure_week(conn, monday_of(date.today()))
         conn.executescript(POST_MIGRATION_INDEXES)

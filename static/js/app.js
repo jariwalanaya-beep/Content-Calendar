@@ -21,6 +21,7 @@ import { renderCalendar } from './views/calendar.js';
 import { renderMonth }    from './views/month.js';
 import { renderDetail }   from './views/detail.js';
 import { renderWeekly }   from './views/weekly.js';
+import { renderDashboard } from './views/dashboard.js';
 
 /**
  * Shared, mutable app state.
@@ -56,6 +57,7 @@ const LIBRARY_TABS = [
   { id: 'deadlines', label: 'Deadlines', hash: '#/library/deadlines' },
   { id: 'calendar', label: 'Calendar',   hash: '#/library/calendar' },
   { id: 'month',    label: 'This Month', hash: '#/library/month' },
+  { id: 'dashboard', label: 'Dashboard', hash: '#/library/dashboard' },
 ];
 
 /** Tab bar shared by the four library views. */
@@ -96,6 +98,7 @@ async function route() {
     const renderers = {
       table: renderTable, deadlines: renderDeadlines,
       calendar: renderCalendar, month: renderMonth,
+      dashboard: renderDashboard,
     };
     const render = renderers[tab] || renderTable;
     root.append(tabBar(renderers[tab] ? tab : 'table'));

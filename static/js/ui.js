@@ -24,7 +24,6 @@ export const PERFORMANCES = [
 export const TYPES = [
   { value: 'Scripted',   color: 'blue'   },
   { value: 'Clips',      color: 'orange' },
-  { value: 'Short Edit', color: 'green'  },
 ];
 
 const colorOf = (list, value) =>

@@ -138,6 +138,13 @@ a { color: inherit; text-decoration: none; }
 #search::-webkit-search-cancel-button { cursor: pointer; filter: invert(.6); }
 
 .view { padding: 26px 26px 48px; max-width: 1560px; margin: 0 auto; }
+/* Views fade up as the router swaps them, so navigation feels placed, not
+   flashed. Cheap: only animates the freshly inserted nodes. */
+#view > * { animation: viewin .22s var(--ease) both; }
+@keyframes viewin {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
 
 /* Footer ------------------------------------------------------------------ */
 .footer {
@@ -421,56 +428,93 @@ table.grid tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--accen
 table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .row-actions .btn:hover { color: var(--danger); }
 
-/* --- 4b. Board ----------------------------------------------------------- */
-.board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 14px; align-items: flex-start; }
-.board-col {
-  /* Share the width so all six status columns fit on a normal screen, but stop
-     shrinking at 200px and scroll horizontally instead. */
-  flex: 1 1 0; min-width: 200px;
-  display: flex; flex-direction: column;
-  background: var(--surface); border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  max-height: calc(100vh - 220px);
-  transition: border-color .15s var(--ease), background .15s var(--ease),
-              box-shadow .15s var(--ease);
+/* --- 4b. Dashboard ------------------------------------------------------- */
+.card-date { font-family: var(--mono); }   /* month view's date badge */
+
+.stat-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin-bottom: 18px;
 }
-.board-col.drop-target {
-  border-color: var(--accent-dim);
-  background: var(--accent-faint);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+.stat-tile {
+  padding: 16px 18px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+  transition: border-color .15s var(--ease), transform .15s var(--ease);
 }
-.board-col-head {
-  display: flex; align-items: center; gap: 8px;
-  padding: 12px 12px 10px;
-  border-bottom: 1px solid var(--border);
+.stat-tile:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.stat-value {
+  font-size: 30px; font-weight: 750; letter-spacing: -.03em;
+  line-height: 1.1; font-variant-numeric: tabular-nums;
 }
-.board-count {
-  margin-left: auto;
-  color: var(--text-faint); font-size: 11px; font-family: var(--mono);
-  background: var(--surface-hover); padding: 1px 7px; border-radius: 10px;
+.stat-danger { color: var(--danger); }
+.stat-label {
+  margin-top: 4px;
+  color: var(--text-faint); font-size: 10.5px; font-weight: 650;
+  text-transform: uppercase; letter-spacing: .07em;
 }
-.board-cards {
-  padding: 10px; overflow-y: auto; flex: 1;
-  display: flex; flex-direction: column; gap: 8px; min-height: 60px;
+
+.dash-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px; align-items: start;
 }
-.card {
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 11px 12px;
-  cursor: grab;
-  transition: border-color .14s var(--ease), transform .14s var(--ease),
-              box-shadow .14s var(--ease);
+.chart-card {
+  padding: 16px 18px 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
 }
-.card:hover {
-  border-color: var(--border-strong); transform: translateY(-1px);
-  box-shadow: var(--shadow);
+.chart-title {
+  margin-bottom: 12px;
+  color: var(--text-muted); font-size: 12px; font-weight: 650;
+  text-transform: uppercase; letter-spacing: .06em;
 }
-.card.dragging { opacity: .4; cursor: grabbing; transform: rotate(1.5deg) scale(.98); }
-.card-title { font-weight: 550; margin-bottom: 9px; line-height: 1.4; font-size: 13.5px; }
-.card-meta {
-  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-  color: var(--text-faint); font-size: 11px;
+.chart-empty { color: var(--text-faint); font-size: 13px; padding: 10px 0 6px; }
+
+/* One bar: label | track+fill | count. Thin mark, rounded data-end anchored
+   to a flat baseline, labels and counts in ink colours (never the bar hue). */
+.bar-row {
+  display: grid; grid-template-columns: 110px 1fr 32px;
+  align-items: center; gap: 10px;
+  padding: 3px 0; border-radius: var(--radius-sm);
 }
-.card-date { font-family: var(--mono); }
+.bar-row:hover { background: var(--surface-2); }
+.bar-label {
+  color: var(--text-muted); font-size: 12.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bar-track { height: 14px; background: var(--surface-2); border-radius: 0 4px 4px 0; }
+.bar-fill {
+  height: 100%; min-width: 2px;
+  background: var(--accent);
+  border-radius: 0 4px 4px 0;
+  transition: width .35s var(--ease);
+}
+.bar-count {
+  color: var(--text); font-size: 12px; font-weight: 600;
+  font-variant-numeric: tabular-nums; text-align: right; padding-right: 4px;
+}
+
+/* Column (vertical bar) charts — SVG. Gridlines recede, columns carry the
+   accent, all text stays in ink colours. */
+.chart-wide { margin-top: 12px; }
+.colchart { width: 100%; height: auto; display: block; }
+.colchart .gridline { stroke: var(--border); stroke-width: 1; }
+.colchart .axis-label { fill: var(--text-faint); font-size: 10px; font-family: var(--mono); }
+.colchart .col-value { fill: var(--text-muted); font-size: 10px; font-weight: 600; }
+.colchart .col-bar { fill: var(--accent); transition: fill .13s var(--ease); }
+.colchart .col-bar:hover { fill: var(--accent-hover); }
+
+/* Completion donut */
+.donut-card { display: flex; flex-direction: column; align-items: center; }
+.donut-card .chart-title { align-self: flex-start; }
+.donut { width: 150px; height: 150px; }
+.donut-track { fill: none; stroke: var(--surface-2); stroke-width: 14; }
+.donut-arc {
+  fill: none; stroke: var(--accent); stroke-width: 14;
+  stroke-linecap: round;
+  transition: stroke-dasharray .4s var(--ease);
+}
+.donut-pct { fill: var(--text); font-size: 26px; font-weight: 750; }
+.donut-sub { fill: var(--text-faint); font-size: 10.5px; font-family: var(--mono); }
 
 /* --- 4c. Calendar -------------------------------------------------------- */
 .cal-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
@@ -688,11 +732,32 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .week-table tr.is-today { background: var(--accent-faint); }
 .week-table tbody td:first-child { box-shadow: inset 3px 0 0 transparent; }
 .week-table tr.is-today td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
-.day-cell { font-weight: 600; white-space: nowrap; padding-left: 14px !important; }
+.day-cell {
+  font-weight: 600; white-space: nowrap; vertical-align: top;
+  padding-left: 14px !important; padding-top: 9px !important;
+}
+.day-date { color: var(--text-faint); font-size: 11px; margin-left: 6px; font-family: var(--mono); }
+/* The per-day + appears on hover so seven of them don't shout at once. */
+.day-add { margin-left: 8px; padding: 0 7px; opacity: 0; transition: opacity .13s var(--ease); }
+.week-table tr:hover .day-add { opacity: 1; }
 .today-dot {
   display: inline-block; width: 6px; height: 6px; border-radius: 50%;
   background: var(--accent); margin-left: 7px; vertical-align: middle;
   box-shadow: 0 0 8px var(--accent);
+}
+.cell-blank { color: var(--text-faint); }
+.cell-linked { position: relative; padding-right: 26px !important; }
+.open-link {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  padding: 2px 5px; border-radius: var(--radius-sm);
+  color: var(--text-faint); font-size: 12px;
+  opacity: 0; transition: opacity .13s var(--ease), color .13s var(--ease);
+}
+.week-table tr:hover .open-link { opacity: 1; }
+.open-link:hover { color: var(--accent-hover); background: var(--surface-hover); }
+.media-count {
+  white-space: nowrap; color: var(--text-faint);
+  font-size: 11px; font-family: var(--mono);
 }
 
 /* --- Responsive ---------------------------------------------------------- */

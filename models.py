@@ -39,7 +39,6 @@ class ContentType(str, Enum):
     """Production style."""
     SCRIPTED = "Scripted"
     CLIPS = "Clips"
-    SHORT_EDIT = "Short Edit"
 
 
 # `kind` distinguishes the two upload buckets and maps directly to the
@@ -75,6 +74,7 @@ class WeeklyDayUpdate(BaseModel):
 class WeeklyDay(BaseModel):
     """One weekday row as returned to the client."""
     id: int
+    week_start: str
     day_index: int
     day_name: str
     format: str
