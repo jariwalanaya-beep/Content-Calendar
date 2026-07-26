@@ -108,7 +108,9 @@ a { color: inherit; text-decoration: none; }
   white-space: nowrap;
 }
 
-.section-nav { display: flex; gap: 3px; }
+/* min-width + overflow keep the six links usable on narrow windows: the nav
+   scrolls sideways instead of pushing the search box off screen. */
+.section-nav { display: flex; gap: 3px; min-width: 0; overflow-x: auto; }
 .section-link {
   position: relative;
   padding: 6px 12px; border-radius: var(--radius-sm);
@@ -190,25 +192,6 @@ a { color: inherit; text-decoration: none; }
 
 .btn-sm { padding: 4px 9px; font-size: 12px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
-
-/* Tabs */
-.tabs {
-  display: flex; gap: 4px; align-items: center;
-  padding: 4px; margin-bottom: 22px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); width: fit-content;
-}
-.tab {
-  padding: 6px 14px; border-radius: var(--radius);
-  color: var(--text-muted); font-weight: 500; font-size: 13px;
-  cursor: pointer; white-space: nowrap;
-  transition: background .14s var(--ease), color .14s var(--ease);
-}
-.tab:hover { color: var(--text); background: var(--surface-2); }
-.tab.active {
-  color: #fff; background: var(--surface-hover);
-  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--border-strong);
-}
 
 /* View header */
 .view-header {
@@ -570,13 +553,6 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   font-size: 21px; font-weight: 700; letter-spacing: -.02em;
   line-height: 1.3; flex: 1;
 }
-/* The published video title, shown under the internal topic heading. */
-.preview-published {
-  margin: -6px 0 12px;
-  padding-left: 11px; border-left: 3px solid var(--accent);
-  color: var(--text-muted); font-size: 14px; line-height: 1.5;
-}
-
 .preview-meta {
   display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
   padding-bottom: 16px; border-bottom: 1px solid var(--border);
@@ -771,11 +747,9 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   #search { width: 150px; }
   #search:focus { width: 190px; }
   .topbar { gap: 12px; padding: 0 12px; }
+  .section-link { padding: 6px 8px; }
   .detail-title { font-size: 26px; }
 }
-
-/* Title column in the table view */
-.col-title { min-width: 240px; }
 
 /* --- Deadlines view ------------------------------------------------------ */
 .due-badge {

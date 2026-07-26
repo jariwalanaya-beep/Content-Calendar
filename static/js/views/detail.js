@@ -14,6 +14,32 @@ import {
   STATUSES, PERFORMANCES, TYPES,
 } from '../ui.js';
 
+/**
+ * Delete the entry if it is still exactly as "+ New" created it — no topic,
+ * text, dates, categorisation or media. Called by the router when the user
+ * navigates away from a detail page, so backing out of a page they never
+ * filled in does not leave an empty "Untitled" row in the library.
+ */
+export async function discardIfEmpty(id) {
+  let item;
+  try { item = await api.getContent(id); } catch { return; }
+
+  const blank = s => !s || !s.trim();
+  const pristine =
+    (blank(item.topic) || item.topic === 'Untitled') &&
+    blank(item.assigned_to) && blank(item.notes) && blank(item.script) &&
+    !item.upload_date && !item.deadline &&
+    !item.performance && !item.type &&
+    item.status === 'Idea' && !item.done &&
+    item.raw.length === 0 && item.final.length === 0;
+  if (!pristine) return;
+
+  try {
+    await api.deleteContent(id);
+    toast('Empty entry discarded');
+  } catch { /* already gone — nothing to clean up */ }
+}
+
 export async function renderDetail(root, id) {
   const spinner = loading();
   root.append(spinner);
@@ -82,10 +108,6 @@ export async function renderDetail(root, id) {
 
   side.append(el('div', { class: 'side-panel' },
     el('div', { class: 'field-grid' },
-      // The published/video title, separate from the Topic heading above,
-      // which stays as the internal working name.
-      field('Title', textCell(item.title, v => save({ title: v }),
-                              { placeholder: 'Published video title' })),
       field('Status',      selectCell(item.status, STATUSES,
                                       v => save({ status: v }), { allowEmpty: false })),
       field('Type',        selectCell(item.type, TYPES, v => save({ type: v }))),

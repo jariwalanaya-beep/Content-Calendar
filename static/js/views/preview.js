@@ -57,10 +57,6 @@ export async function openPreview(id) {
     el('button', { class: 'btn btn-ghost btn-sm', onclick: close, title: 'Close' }, '✕'),
   ));
 
-  if (item.title?.trim()) {
-    body.append(el('div', { class: 'preview-published' }, item.title));
-  }
-
   /* --- property chips --- */
   const meta = el('div', { class: 'preview-meta' },
     chip(item.status, STATUSES),

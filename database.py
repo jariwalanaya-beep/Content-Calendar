@@ -206,13 +206,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if current == SCHEMA_VERSION:
         return
 
-    # v1 -> v2: add the published title column to databases created before it
-    # existed. CREATE TABLE above already covers brand-new databases, so this
-    # only matters for an upgrade in place.
-    if current < 2:
-        cols = {r["name"] for r in conn.execute("PRAGMA table_info(content)")}
-        if "title" not in cols:
-            conn.execute("ALTER TABLE content ADD COLUMN title TEXT NOT NULL DEFAULT ''")
+    # v1 -> v2 used to add a separate published-title column; v6 merges it back
+    # into topic, so the step is gone. The version numbers still advance so the
+    # later migrations run for databases stuck at any intermediate version.
 
     # v2 -> v3: editor deadline plus a done flag, for the Deadlines view.
     if current < 3:
@@ -247,6 +243,19 @@ def _migrate(conn: sqlite3.Connection) -> None:
     # it becomes untyped rather than failing response validation.
     if current < 5:
         conn.execute("UPDATE content SET type = NULL WHERE type = 'Short Edit'")
+
+    # v5 -> v6: topic and title were the same thing in practice, so they merge
+    # into topic. A row whose topic was never filled in keeps its title text;
+    # otherwise topic wins and the title is dropped.
+    if current < 6:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(content)")}
+        if "title" in cols:
+            conn.execute(
+                """UPDATE content SET topic = TRIM(title)
+                   WHERE TRIM(title) <> ''
+                     AND (TRIM(topic) = '' OR topic = 'Untitled')"""
+            )
+            conn.execute("ALTER TABLE content DROP COLUMN title")
 
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 

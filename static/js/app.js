@@ -19,7 +19,7 @@ import { renderTable }    from './views/table.js';
 import { renderDeadlines } from './views/deadlines.js';
 import { renderCalendar } from './views/calendar.js';
 import { renderMonth }    from './views/month.js';
-import { renderDetail }   from './views/detail.js';
+import { renderDetail, discardIfEmpty } from './views/detail.js';
 import { renderWeekly }   from './views/weekly.js';
 import { renderDashboard } from './views/dashboard.js';
 
@@ -52,33 +52,36 @@ function parseHash() {
   return { parts, name: parts[0] || 'library' };
 }
 
-const LIBRARY_TABS = [
-  { id: 'table',    label: 'Table',      hash: '#/library' },
-  { id: 'deadlines', label: 'Deadlines', hash: '#/library/deadlines' },
-  { id: 'calendar', label: 'Calendar',   hash: '#/library/calendar' },
-  { id: 'month',    label: 'This Month', hash: '#/library/month' },
-  { id: 'dashboard', label: 'Dashboard', hash: '#/library/dashboard' },
-];
+const LIBRARY_RENDERERS = {
+  table: renderTable, deadlines: renderDeadlines,
+  calendar: renderCalendar, month: renderMonth,
+  dashboard: renderDashboard,
+};
 
-/** Tab bar shared by the four library views. */
-function tabBar(active) {
-  return el('div', { class: 'tabs' },
-    LIBRARY_TABS.map(t =>
-      el('a', {
-        class: `tab${t.id === active ? ' active' : ''}`,
-        href: t.hash,
-      }, t.label)),
-  );
-}
+// The detail page whose entry gets discarded if it is still empty when the
+// user navigates away — so backing out of a fresh "+ New" leaves no
+// "Untitled" husk in the library.
+let openDetailId = null;
 
 async function route() {
   const { parts, name } = parseHash();
   const root = viewRoot();
 
-  // Highlight the active top-level section.
-  const section = name === 'weekly' ? 'weekly' : 'library';
+  // Leaving a detail page? Clean up first, so the view rendered below
+  // (which may list entries) never shows the row being discarded.
+  const detailId = name === 'content' && parts[1] ? parts[1] : null;
+  if (openDetailId && openDetailId !== detailId) {
+    await discardIfEmpty(Number(openDetailId));
+  }
+  openDetailId = detailId;
+
+  // Highlight the current view in the top bar. The detail page belongs to
+  // the library, so Library stays lit there.
+  const active = name === 'weekly' ? 'weekly'
+    : name === 'content' ? 'table'
+    : (LIBRARY_RENDERERS[parts[1]] ? parts[1] : 'table');
   document.querySelectorAll('.section-link').forEach(a =>
-    a.classList.toggle('active', a.dataset.section === section));
+    a.classList.toggle('active', a.dataset.route === active));
 
   clear(root);
 
@@ -93,15 +96,7 @@ async function route() {
       return;
     }
 
-    // Library views, all sharing the tab bar.
-    const tab = parts[1] || 'table';
-    const renderers = {
-      table: renderTable, deadlines: renderDeadlines,
-      calendar: renderCalendar, month: renderMonth,
-      dashboard: renderDashboard,
-    };
-    const render = renderers[tab] || renderTable;
-    root.append(tabBar(renderers[tab] ? tab : 'table'));
+    const render = LIBRARY_RENDERERS[parts[1] || 'table'] || renderTable;
     await render(root, state);
   } catch (err) {
     console.error(err);
@@ -133,10 +128,18 @@ function wireTopBar() {
     }, 220);
   });
 
-  // "/" focuses search, Escape clears it — as long as you are not already typing.
+  // "/" focuses search, Escape clears it, 1-6 switch views — as long as you
+  // are not already typing in a field.
+  const VIEW_KEYS = {
+    1: '#/library', 2: '#/library/deadlines', 3: '#/library/calendar',
+    4: '#/library/month', 5: '#/library/dashboard', 6: '#/weekly',
+  };
   document.addEventListener('keydown', e => {
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
     if (e.key === '/' && !typing) { e.preventDefault(); search.focus(); }
+    if (VIEW_KEYS[e.key] && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      location.hash = VIEW_KEYS[e.key];
+    }
     if (e.key === 'Escape' && e.target === search) {
       search.value = ''; state.search = ''; search.blur(); route();
     }

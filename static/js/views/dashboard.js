@@ -48,23 +48,31 @@ function statTile(label, value, tone) {
     el('div', { class: 'stat-label' }, label));
 }
 
-/** A titled card holding one horizontal bar chart (label | bar | count). */
-function barCard(title, counts, { hideZero = false } = {}) {
+/**
+ * A titled card holding one horizontal bar chart (label | bar | count).
+ * A chart where every value is zero says nothing, so it collapses to the
+ * `empty` message instead of rendering a wall of empty tracks.
+ */
+function barCard(title, counts, { hideZero = false, empty = 'No data yet' } = {}) {
   let entries = Object.entries(counts);
   if (hideZero) entries = entries.filter(([, n]) => n > 0);
   const max = Math.max(1, ...entries.map(([, n]) => n));
 
   const card = el('div', { class: 'chart-card' },
     el('div', { class: 'chart-title' }, title));
-  if (!entries.length) {
-    card.append(el('div', { class: 'chart-empty' }, 'No data yet'));
+  if (!entries.length || entries.every(([, n]) => n === 0)) {
+    card.append(el('div', { class: 'chart-empty' }, empty));
     return card;
   }
   for (const [label, n] of entries) {
-    card.append(el('div', { class: 'bar-row', title: `${label}: ${n}` },
+    // Zero rows stay (an empty pipeline stage is information) but draw no
+    // fill — a 2px sliver would read as "almost one".
+    card.append(el('div', { class: `bar-row${n ? '' : ' bar-zero'}`,
+                            title: `${label}: ${n}` },
       el('div', { class: 'bar-label' }, label),
       el('div', { class: 'bar-track' },
-        el('div', { class: 'bar-fill', style: `width:${(n / max) * 100}%` })),
+        n ? el('div', { class: 'bar-fill', style: `width:${(n / max) * 100}%` })
+          : null),
       el('div', { class: 'bar-count' }, String(n))));
   }
   return card;
@@ -83,13 +91,17 @@ function columnCard(title, counts, { wide = false } = {}) {
     return card;
   }
 
-  // The wide variant fills the page, so its viewBox is proportionally wider —
-  // scaling then stays near 1:1 and the axis text keeps its intended size.
-  const W = wide ? 1240 : 560, H = 190, padL = 30, padR = 8, padT = 18, padB = 24;
+  // The viewBox tracks the rendered size (a ~400px card, or the full page for
+  // the wide variant) so SVG units stay near 1:1 CSS pixels and the axis text
+  // renders at its intended size instead of scaling down.
+  const W = wide ? 1240 : 400, H = 190, padL = 30, padR = 8, padT = 18, padB = 24;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const base = padT + plotH;
   const max = Math.max(...entries.map(([, n]) => n));
-  const band = plotW / entries.length;
+  // Cap the band so a handful of columns cluster at a readable width in the
+  // middle instead of drifting hundreds of pixels apart across a wide plot.
+  const band = Math.min(plotW / entries.length, 110);
+  const startX = padL + (plotW - band * entries.length) / 2;
   const bw = Math.min(44, band * 0.62);
 
   const chart = svg('svg', {
@@ -108,7 +120,7 @@ function columnCard(title, counts, { wide = false } = {}) {
   }
 
   entries.forEach(([label, n], i) => {
-    const x = padL + i * band + (band - bw) / 2;
+    const x = startX + i * band + (band - bw) / 2;
     const h = (n / max) * plotH;
     const y = base - h;
     const r = Math.min(4, h);          // rounded top, flat baseline

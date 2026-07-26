@@ -6,7 +6,7 @@
 <title>Content Hub</title>
 <!-- ?v= is a cache-buster: bump it when shipping CSS/JS changes so browsers
      that cached the old URL are forced to fetch the new file. -->
-<link rel="stylesheet" href="/static/css/style.css?v=2">
+<link rel="stylesheet" href="/static/css/style.css?v=3">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
 </head>
 <body>
@@ -18,9 +18,14 @@
     <span class="brand-name">Content Hub</span>
   </div>
 
+  <!-- Every view is one click away from anywhere; keys 1-6 jump too. -->
   <nav class="section-nav">
-    <a href="#/library" class="section-link" data-section="library">Content Library</a>
-    <a href="#/weekly"  class="section-link" data-section="weekly">Weekly</a>
+    <a href="#/library"           class="section-link" data-route="table"     title="Library (1)">Library</a>
+    <a href="#/library/deadlines" class="section-link" data-route="deadlines" title="Deadlines (2)">Deadlines</a>
+    <a href="#/library/calendar"  class="section-link" data-route="calendar"  title="Calendar (3)">Calendar</a>
+    <a href="#/library/month"     class="section-link" data-route="month"     title="This Month (4)">This Month</a>
+    <a href="#/library/dashboard" class="section-link" data-route="dashboard" title="Dashboard (5)">Dashboard</a>
+    <a href="#/weekly"            class="section-link" data-route="weekly"    title="Weekly (6)">Weekly</a>
   </nav>
 
   <div class="topbar-right">
