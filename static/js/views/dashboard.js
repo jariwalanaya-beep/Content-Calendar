@@ -11,7 +11,7 @@
  */
 
 import { api } from '../api.js';
-import { el, loading, emptyState, STATUSES, TYPES, PERFORMANCES } from '../ui.js';
+import { el, loading, emptyState, STATUSES, TYPES } from '../ui.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -451,8 +451,6 @@ export async function renderDashboard(root, state) {
 
   const byStatus = countBy(items, i => i.status, STATUSES.map(s => s.value));
   const byType = countBy(items, i => i.type, TYPES.map(t => t.value));
-  const byPerf = countBy(items, i => i.performance,
-                         PERFORMANCES.map(p => p.value));
   const byPerson = countBy(items.filter(i => !i.done && i.assigned_to.trim()),
                            i => i.assigned_to.trim());
   const byWeekday = countBy(items, i => {
@@ -462,31 +460,27 @@ export async function renderDashboard(root, state) {
   }, WEEKDAYS);
   const monthCounts = fillMonthRange(countBy(items, i =>
     i.upload_date ? i.upload_date.slice(0, 7) : null));
-  const scriptWords = items
-    .filter(i => i.script.trim())
-    .map(i => i.script.trim().split(/\s+/).length);
 
-  // Two balanced rows of three, a pair of half-width charts, then the
-  // full-width growth curve.
+  // A row of three, two half-width pairs, then the full-width momentum curve.
   root.append(el('div', { class: 'dash-grid' },
     barCard('Pipeline', byStatus),
     barCard('Content type', byType,
       { empty: 'No videos have a type yet' }),
-    donutCard(done, items.length),
+    donutCard(done, items.length)));
+
+  root.append(el('div', { class: 'dash-grid dash-2' },
     barCard('Open work per person', byPerson,
       { hideZero: true, empty: 'Nothing is assigned right now' }),
-    barCard('Performance of posted videos', byPerf,
-      { empty: 'No posted videos have been rated yet' }),
     radarCard('Uploads by weekday', byWeekday,
       { empty: 'No uploads dated yet' })));
 
   root.append(el('div', { class: 'dash-grid dash-2' },
-    columnCard('Script length (words per script)',
-      scriptWords.length ? histogramBins(scriptWords) : {},
-      { contiguous: true, empty: 'No scripts written yet' }),
+    columnCard('Videos uploaded per week', uploadsByWeek(items),
+      { mid: true, contiguous: true, empty: 'No uploads dated yet' }),
     lineCard('Videos per month', monthCounts,
       { empty: 'No uploads dated yet' })));
 
-  root.append(lineCard('Library growth (total videos)', growthByDay(items),
-    { wide: true, smooth: true, area: true }));
+  root.append(lineCard('Channel momentum — Viral climbs, Failed drops', momentum(items),
+    { wide: true, smooth: true, zeroOk: true,
+      empty: 'Rate posted videos (Viral / Average / Failed) and momentum charts itself' }));
 }

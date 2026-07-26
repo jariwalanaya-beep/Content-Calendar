@@ -500,6 +500,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 /* Line / spline / area charts share the column chart's chrome. The dot's
    surface-colored stroke is the 2px ring separating it from the line. */
 .linechart .line-stroke { fill: none; stroke: var(--accent); stroke-width: 2; }
+.linechart .zeroline { stroke: var(--border-strong); }
 .linechart .area-fill { fill: var(--accent); opacity: .14; }
 .line-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 
