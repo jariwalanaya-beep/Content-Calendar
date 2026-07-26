@@ -425,9 +425,10 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   transition: border-color .15s var(--ease), transform .15s var(--ease);
 }
 .stat-tile:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+/* Proportional figures: equal-width digits look loose at display sizes. */
 .stat-value {
   font-size: 30px; font-weight: 750; letter-spacing: -.03em;
-  line-height: 1.1; font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
 .stat-danger { color: var(--danger); }
 .stat-label {
@@ -436,9 +437,17 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   text-transform: uppercase; letter-spacing: .07em;
 }
 
+/* Two rows of three equal cards. Cards in a row stretch to the same height,
+   so the grid always reads as tidy rows — no masonry holes. */
 .dash-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 12px; align-items: start;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 1080px) {
+  .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .dash-grid { grid-template-columns: 1fr; }
 }
 .chart-card {
   padding: 16px 18px 14px;
@@ -475,6 +484,8 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   color: var(--text); font-size: 12px; font-weight: 600;
   font-variant-numeric: tabular-nums; text-align: right; padding-right: 4px;
 }
+/* Zero rows: keep the slot, mute the ink, draw no fill. */
+.bar-zero .bar-label, .bar-zero .bar-count { color: var(--text-faint); }
 
 /* Column (vertical bar) charts — SVG. Gridlines recede, columns carry the
    accent, all text stays in ink colours. */
@@ -486,9 +497,33 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .colchart .col-bar { fill: var(--accent); transition: fill .13s var(--ease); }
 .colchart .col-bar:hover { fill: var(--accent-hover); }
 
-/* Completion donut */
-.donut-card { display: flex; flex-direction: column; align-items: center; }
-.donut-card .chart-title { align-self: flex-start; }
+/* Line / spline / area charts share the column chart's chrome. The dot's
+   surface-colored stroke is the 2px ring separating it from the line. */
+.linechart .line-stroke { fill: none; stroke: var(--accent); stroke-width: 2; }
+.linechart .area-fill { fill: var(--accent); opacity: .14; }
+.line-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+
+/* Radar — recessive rings and spokes, one translucent data polygon. */
+.radar-card { display: flex; flex-direction: column; align-items: center; }
+.radar-card .chart-title { align-self: flex-start; }
+.radar { width: 100%; max-width: 320px; height: auto; display: block; }
+.radar .axis-label { fill: var(--text-faint); font-size: 10px; font-family: var(--mono); }
+.radar-ring { fill: none; stroke: var(--border); stroke-width: 1; }
+.radar-fill { fill: var(--accent-glow); stroke: var(--accent); stroke-width: 2; }
+
+/* Half-width pair below the three-card rows. */
+.dash-grid + .dash-grid { margin-top: 12px; }
+.dash-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 860px) {
+  .dash-2 { grid-template-columns: 1fr; }
+}
+
+/* Completion donut — content centers in whatever height its row stretches to */
+.donut-card {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center;
+}
+.donut-card .chart-title { align-self: flex-start; margin-right: auto; }
 .donut { width: 150px; height: 150px; }
 .donut-track { fill: none; stroke: var(--surface-2); stroke-width: 14; }
 .donut-arc {
