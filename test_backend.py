@@ -54,12 +54,12 @@ with TestClient(main.app) as client:
     print("\n== content CRUD ==")
     r = client.post("/api/content", json={
         "topic": "Ancient Mysteries", "assigned_to": "Editor",
-        "status": "Scripting", "type": "Scripted",
+        "status": "Idea", "type": "Scripted",
         "upload_date": "2026-07-15", "script": "Line one.",
     })
     check("create", r.status_code == 201, r.text)
     cid = r.json()["id"]
-    check("fields persisted", r.json()["status"] == "Scripting"
+    check("fields persisted", r.json()["status"] == "Idea"
           and r.json()["upload_date"] == "2026-07-15")
 
     r = client.post("/api/content", json={"topic": "Strange Science",
@@ -77,6 +77,36 @@ with TestClient(main.app) as client:
 
     r = client.post("/api/content", json={"topic": "x", "status": "Nonsense"})
     check("reject invalid status", r.status_code == 422)
+
+    print("\n== pipeline automation ==")
+    # Ready + past upload date auto-advances to Posted on the next read.
+    r = client.post("/api/content", json={"topic": "Went out yesterday",
+                                          "status": "Ready",
+                                          "upload_date": "2020-01-01"})
+    check("Ready + past date -> Posted", r.json()["status"] == "Posted")
+    client.delete(f"/api/content/{r.json()['id']}")
+
+    # An earlier stage with a past date is late, not posted.
+    r = client.post("/api/content", json={"topic": "Still being edited",
+                                          "status": "Editing",
+                                          "upload_date": "2020-01-01"})
+    check("non-Ready stays put", r.json()["status"] == "Editing")
+    client.delete(f"/api/content/{r.json()['id']}")
+
+    # Marking the edit Done moves Editing forward to Ready.
+    r = client.post("/api/content", json={"topic": "Being edited",
+                                          "status": "Editing"})
+    r2 = client.patch(f"/api/content/{r.json()['id']}", json={"done": True})
+    check("done moves Editing -> Ready",
+          r2.json()["status"] == "Ready" and r2.json()["done"])
+    client.delete(f"/api/content/{r.json()['id']}")
+
+    # But it never overrides a status other than Editing.
+    r = client.post("/api/content", json={"topic": "Just an idea",
+                                          "status": "Idea"})
+    r2 = client.patch(f"/api/content/{r.json()['id']}", json={"done": True})
+    check("done leaves non-Editing status", r2.json()["status"] == "Idea")
+    client.delete(f"/api/content/{r.json()['id']}")
 
     print("\n== search / filter / sort ==")
     check("search hit", len(client.get("/api/content?search=Ancient").json()) == 1)
@@ -184,6 +214,37 @@ with TestClient(main.app) as client:
     check("content gone", client.get(f"/api/content/{cid}").status_code == 404)
     check("orphan media rows cascaded",
           client.get(f"/api/content/{cid}").status_code == 404)
+
+    print("\n== money ==")
+    r = client.post("/api/money", json={"entry": "Facebook", "amount": 63000,
+                                        "date": "2026-07-01",
+                                        "direction": "Income",
+                                        "party": "Facebook"})
+    check("money create", r.status_code == 201 and r.json()["signed"] == 63000,
+          r.text)
+    money_id = r.json()["id"]
+    r = client.post("/api/money", json={"entry": "Claude", "amount": 1999,
+                                        "date": "2026-07-09",
+                                        "direction": "Expense",
+                                        "party": "Personal"})
+    check("expense signs negative", r.json()["signed"] == -1999)
+    check("month filter", len(client.get("/api/money?month=2026-07").json()) == 2)
+    check("direction filter",
+          len(client.get("/api/money?direction=Income").json()) == 1)
+    r = client.patch(f"/api/money/{money_id}", json={"amount": 60000})
+    check("money patch re-signs", r.json()["signed"] == 60000)
+    check("bad direction rejected",
+          client.post("/api/money", json={"direction": "Sideways"}).status_code == 422)
+
+    check("goal default", client.get("/api/money/goal").json()["goal"] == 350000)
+    client.put("/api/money/goal", json={"goal": 500000})
+    check("goal saved", client.get("/api/money/goal").json()["goal"] == 500000)
+    check("goal must be positive",
+          client.put("/api/money/goal", json={"goal": 0}).status_code == 422)
+
+    client.delete(f"/api/money/{money_id}")
+    check("money delete",
+          len(client.get("/api/money?direction=Income").json()) == 0)
 
     print("\n== misc ==")
     check("config endpoint", client.get("/api/config").json()["media_root"].endswith("media"))

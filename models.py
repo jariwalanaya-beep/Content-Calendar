@@ -21,7 +21,6 @@ from pydantic import BaseModel, Field, field_validator
 class Status(str, Enum):
     """Pipeline stage. Order here is the order of the kanban board columns."""
     IDEA = "Idea"
-    SCRIPTING = "Scripting"
     EDITING = "Editing"
     READY = "Ready"
     POSTED = "Posted"
@@ -39,6 +38,12 @@ class ContentType(str, Enum):
     """Production style."""
     SCRIPTED = "Scripted"
     CLIPS = "Clips"
+
+
+class Direction(str, Enum):
+    """Which way money moved in the ledger."""
+    INCOME = "Income"
+    EXPENSE = "Expense"
 
 
 # `kind` distinguishes the two upload buckets and maps directly to the
@@ -154,6 +159,58 @@ class ContentUpdate(BaseModel):
         if v is None:
             return None
         return v.strip() or "Untitled"
+
+
+# --------------------------------------------------------------------------- #
+# Money ledger
+# --------------------------------------------------------------------------- #
+
+class MoneyCreate(BaseModel):
+    """Payload for one ledger entry. Amount is always positive — the
+    direction decides the sign."""
+    entry: str = Field(default="", max_length=500)
+    amount: float = Field(default=0, ge=0)
+    date: date | None = None
+    direction: Direction = Direction.EXPENSE
+    party: str = Field(default="", max_length=200)
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def _empty_string_is_null(cls, v):
+        return None if v == "" else v
+
+
+class MoneyUpdate(BaseModel):
+    """Partial update; same absent-vs-null semantics as ContentUpdate."""
+    entry: str | None = Field(default=None, max_length=500)
+    amount: float | None = Field(default=None, ge=0)
+    date: date | None = None
+    direction: Direction | None = None
+    party: str | None = Field(default=None, max_length=200)
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def _empty_string_is_null(cls, v):
+        return None if v == "" else v
+
+
+class MoneyEntry(BaseModel):
+    """A ledger row as returned to the client. `signed` is the amount with
+    its direction applied, so the client can sum without re-deriving it."""
+    id: int
+    entry: str
+    amount: float
+    date: str | None
+    direction: Direction
+    party: str
+    signed: float
+    created_at: str
+    updated_at: str
+
+
+class MoneyGoal(BaseModel):
+    """The savings goal the ledger's net total is tracked against."""
+    goal: float = Field(gt=0)
 
 
 class MediaFile(BaseModel):

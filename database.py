@@ -16,7 +16,7 @@ import sqlite3
 from config import settings
 
 # Bump this when you change the schema, and add the matching migration below.
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 # Monday-first, matching the weekly template layout.
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday",
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS content (
     assigned_to  TEXT    NOT NULL DEFAULT '',
     notes        TEXT    NOT NULL DEFAULT '',
     performance  TEXT,                          -- Viral | Average | Failed | NULL
-    status       TEXT    NOT NULL DEFAULT 'Idea',  -- Idea|Scripting|Editing|Ready|Posted|Failed
+    status       TEXT    NOT NULL DEFAULT 'Idea',  -- Idea|Editing|Ready|Posted|Failed
     type         TEXT,                          -- Scripted | Clips | NULL
     upload_date  TEXT,                          -- ISO 'YYYY-MM-DD'; drives the calendar view
     script       TEXT    NOT NULL DEFAULT '',
@@ -158,6 +158,26 @@ CREATE TABLE IF NOT EXISTS media_file (
 );
 
 CREATE INDEX IF NOT EXISTS idx_media_content ON media_file(content_id, kind);
+
+-- The money ledger: one row per income or expense entry.
+CREATE TABLE IF NOT EXISTS money (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry      TEXT NOT NULL DEFAULT '',       -- what the money was for
+    amount     REAL NOT NULL DEFAULT 0,        -- always positive; direction signs it
+    date       TEXT,                           -- ISO 'YYYY-MM-DD'
+    direction  TEXT NOT NULL DEFAULT 'Expense',-- Income | Expense
+    party      TEXT NOT NULL DEFAULT '',       -- platform / person
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_money_date ON money(date);
+
+-- Small key-value store for app-level settings (currently the savings goal).
+CREATE TABLE IF NOT EXISTS app_setting (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
@@ -256,6 +276,11 @@ def _migrate(conn: sqlite3.Connection) -> None:
                      AND (TRIM(topic) = '' OR topic = 'Untitled')"""
             )
             conn.execute("ALTER TABLE content DROP COLUMN title")
+
+    # v6 -> v7: the 'Scripting' status was retired. Anything still in it goes
+    # back to Idea — the nearest surviving stage before Editing.
+    if current < 7:
+        conn.execute("UPDATE content SET status = 'Idea' WHERE status = 'Scripting'")
 
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 

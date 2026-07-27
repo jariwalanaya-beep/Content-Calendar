@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 
 from config import settings
 from database import init_db
-from routers import content, media, weekly
+from routers import content, media, money, weekly
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -65,6 +65,7 @@ app = FastAPI(
 app.include_router(weekly.router, prefix="/api")
 app.include_router(content.router, prefix="/api")
 app.include_router(media.router, prefix="/api")
+app.include_router(money.router, prefix="/api")
 
 
 @app.get("/api/config", tags=["meta"])

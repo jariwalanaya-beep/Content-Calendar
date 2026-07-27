@@ -22,6 +22,7 @@ import { renderMonth }    from './views/month.js';
 import { renderDetail, discardIfEmpty } from './views/detail.js';
 import { renderWeekly }   from './views/weekly.js';
 import { renderDashboard } from './views/dashboard.js';
+import { renderMoney }    from './views/money.js';
 
 /**
  * Shared, mutable app state.
@@ -78,6 +79,7 @@ async function route() {
   // Highlight the current view in the top bar. The detail page belongs to
   // the library, so Library stays lit there.
   const active = name === 'weekly' ? 'weekly'
+    : name === 'money' ? 'money'
     : name === 'content' ? 'table'
     : (LIBRARY_RENDERERS[parts[1]] ? parts[1] : 'table');
   document.querySelectorAll('.section-link').forEach(a =>
@@ -88,6 +90,11 @@ async function route() {
   try {
     if (name === 'weekly') {
       await renderWeekly(root);
+      return;
+    }
+
+    if (name === 'money') {
+      await renderMoney(root);
       return;
     }
 
@@ -133,6 +140,7 @@ function wireTopBar() {
   const VIEW_KEYS = {
     1: '#/library', 2: '#/library/deadlines', 3: '#/library/calendar',
     4: '#/library/month', 5: '#/library/dashboard', 6: '#/weekly',
+    7: '#/money',
   };
   document.addEventListener('keydown', e => {
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);

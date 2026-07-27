@@ -8,7 +8,6 @@
 
 export const STATUSES = [
   { value: 'Idea',      color: 'grey'   },
-  { value: 'Scripting', color: 'yellow' },
   { value: 'Editing',   color: 'orange' },
   { value: 'Ready',     color: 'blue'   },
   { value: 'Posted',    color: 'green'  },

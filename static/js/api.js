@@ -64,6 +64,26 @@ export const api = {
   }),
   deleteContent: id => req(`/api/content/${id}`, { method: 'DELETE' }),
 
+  /* --- money ledger --- */
+  listMoney: (filters = {}) => req(`/api/money${qs(filters)}`),
+  createMoney: data => req('/api/money', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }),
+  updateMoney: (id, patch) => req(`/api/money/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  }),
+  deleteMoney: id => req(`/api/money/${id}`, { method: 'DELETE' }),
+  getMoneyGoal: () => req('/api/money/goal'),
+  setMoneyGoal: goal => req('/api/money/goal', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ goal }),
+  }),
+
   /* --- media --- */
   deleteMedia: id => req(`/api/media/${id}`, { method: 'DELETE' }),
 

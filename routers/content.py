@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 import storage
 from database import db_dependency, utc_now_iso
-from models import Content, ContentCreate, ContentUpdate
+from models import Content, ContentCreate, ContentUpdate, Status
 from routers.media import media_row_to_model
 
 router = APIRouter(prefix="/content", tags=["content"])
@@ -45,6 +45,22 @@ def _row_to_content(row: sqlite3.Row) -> Content:
         updated_at=row["updated_at"],
         raw_count=row["raw_count"] if "raw_count" in row.keys() else 0,
         final_count=row["final_count"] if "final_count" in row.keys() else 0,
+    )
+
+
+def _auto_post(conn: sqlite3.Connection) -> None:
+    """
+    A Ready video whose upload date has passed went out, so it advances to
+    Posted by itself. Runs on every read, which keeps all views agreeing
+    without a scheduler. Only Ready moves — earlier stages missing their
+    date are late, not posted.
+    """
+    conn.execute(
+        """UPDATE content SET status = ?, updated_at = ?
+           WHERE status = ? AND upload_date IS NOT NULL
+             AND upload_date <> '' AND upload_date < ?""",
+        (Status.POSTED.value, utc_now_iso(),
+         Status.READY.value, date.today().isoformat()),
     )
 
 
@@ -82,6 +98,8 @@ def list_content(
     with no upload_date are excluded when filtering by month, since they cannot
     be placed on a calendar.
     """
+    _auto_post(conn)
+
     where: list[str] = []
     params: list[object] = []
 
@@ -163,6 +181,7 @@ def get_content(
     conn: sqlite3.Connection = Depends(db_dependency),
 ) -> Content:
     """One entry with its full raw and final media lists, for the detail page."""
+    _auto_post(conn)
     row = conn.execute(
         _BASE_SELECT + " WHERE c.id = ? GROUP BY c.id", (content_id,)
     ).fetchone()
@@ -251,6 +270,16 @@ def update_content(
     if "done" in fields:
         assignments.append("done_at = ?")
         params.append(utc_now_iso() if fields["done"] else None)
+
+    # Signing the edit off moves an Editing video forward to Ready — unless
+    # this same request already sets the status explicitly.
+    if fields.get("done") and "status" not in fields:
+        current = conn.execute(
+            "SELECT status FROM content WHERE id = ?", (content_id,)
+        ).fetchone()["status"]
+        if current == Status.EDITING.value:
+            assignments.append("status = ?")
+            params.append(Status.READY.value)
 
     assignments.append("updated_at = ?")
     params.extend([utc_now_iso(), content_id])

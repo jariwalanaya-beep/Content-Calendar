@@ -787,6 +787,43 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   .detail-title { font-size: 26px; }
 }
 
+/* --- Money view ----------------------------------------------------------- */
+.signed-pos { color: var(--success); }
+.signed-neg { color: var(--danger); }
+
+.goal-card { margin-bottom: 18px; }
+.goal-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.goal-net { font-size: 22px; font-weight: 750; letter-spacing: -.02em; margin-left: 4px; }
+.goal-of { color: var(--text-faint); font-size: 13px; }
+.goal-input {
+  width: 90px; padding: 2px 6px;
+  background: transparent; border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text); font: inherit; font-size: 14px; font-weight: 650;
+}
+.goal-input:hover  { border-color: var(--border); }
+.goal-input:focus  { outline: none; border-color: var(--accent); background: var(--surface-2); }
+.goal-pct { margin-left: auto; color: var(--text-muted); font-size: 13px; font-weight: 650; }
+.goal-track { height: 10px; background: var(--surface-2); border-radius: 5px; }
+.goal-fill {
+  height: 100%; min-width: 0;
+  background: var(--accent); border-radius: 5px 0 0 5px;
+  transition: width .35s var(--ease);
+}
+
+.money-stats { grid-template-columns: repeat(3, 1fr); }
+.money-amount { min-width: 110px; }
+.money-signed {
+  font-variant-numeric: tabular-nums; font-weight: 600;
+  text-align: right; padding-right: 14px; white-space: nowrap;
+}
+.money-sum-row td {
+  border-top: 1px solid var(--border-strong);
+  color: var(--text-muted); font-weight: 650; font-size: 12.5px;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.money-sum-row .money-signed { font-size: 14px; text-transform: none; }
+
 /* --- Deadlines view ------------------------------------------------------ */
 .due-badge {
   display: inline-flex; align-items: center; gap: 5px;
