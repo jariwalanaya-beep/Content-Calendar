@@ -811,7 +811,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   transition: width .35s var(--ease);
 }
 
-.money-stats { grid-template-columns: repeat(3, 1fr); }
+.money-stats { grid-template-columns: repeat(4, 1fr); }
 .money-amount { min-width: 110px; }
 .money-signed {
   font-variant-numeric: tabular-nums; font-weight: 600;

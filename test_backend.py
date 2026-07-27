@@ -246,6 +246,32 @@ with TestClient(main.app) as client:
     check("money delete",
           len(client.get("/api/money?direction=Income").json()) == 0)
 
+    # First Done with an editor assigned books their ₹500 fee as Unpaid.
+    r = client.post("/api/content", json={"topic": "Fee video",
+                                          "status": "Editing",
+                                          "assigned_to": "Ed"})
+    fee_cid = r.json()["id"]
+    client.patch(f"/api/content/{fee_cid}", json={"done": True})
+    fees = [m for m in client.get("/api/money").json()
+            if m["entry"].startswith("Editor fee")]
+    check("done books editor fee",
+          len(fees) == 1 and fees[0]["amount"] == 500
+          and fees[0]["party"] == "Ed" and fees[0]["paid"] == "Unpaid"
+          and fees[0]["signed"] == -500)
+
+    # Re-marking an already-done video must not double-book the fee.
+    client.patch(f"/api/content/{fee_cid}", json={"done": True})
+    check("no double booking",
+          len([m for m in client.get("/api/money").json()
+               if m["entry"].startswith("Editor fee")]) == 1)
+
+    # The fee can be flipped to Paid once the payout happens.
+    r = client.patch(f"/api/money/{fees[0]['id']}", json={"paid": "Paid"})
+    check("fee marked Paid", r.json()["paid"] == "Paid")
+
+    client.delete(f"/api/content/{fee_cid}")
+    client.delete(f"/api/money/{fees[0]['id']}")
+
     print("\n== misc ==")
     check("config endpoint", client.get("/api/config").json()["media_root"].endswith("media"))
     check("index served", client.get("/").status_code in (200, 404))

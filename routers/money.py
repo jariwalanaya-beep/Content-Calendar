@@ -29,6 +29,7 @@ def _row_to_entry(row: sqlite3.Row) -> MoneyEntry:
         date=row["date"],
         direction=row["direction"],
         party=row["party"],
+        paid=row["paid"],
         signed=signed,
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -91,15 +92,16 @@ def create_money(
 ) -> MoneyEntry:
     now = utc_now_iso()
     cur = conn.execute(
-        """INSERT INTO money (entry, amount, date, direction, party,
+        """INSERT INTO money (entry, amount, date, direction, party, paid,
                               created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             payload.entry,
             payload.amount,
             payload.date.isoformat() if payload.date else None,
             payload.direction.value,
             payload.party,
+            payload.paid,
             now, now,
         ),
     )

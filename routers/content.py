@@ -17,6 +17,10 @@ from routers.media import media_row_to_model
 
 router = APIRouter(prefix="/content", tags=["content"])
 
+# What one finished edit costs. Booked into the money ledger as an Unpaid
+# expense the first time a video is marked Done with an editor assigned.
+EDITOR_FEE = 500.0
+
 # Columns the client is allowed to sort by. Whitelisted rather than interpolated
 # from user input, because column names cannot be passed as SQL parameters.
 SORTABLE = {
@@ -271,15 +275,32 @@ def update_content(
         assignments.append("done_at = ?")
         params.append(utc_now_iso() if fields["done"] else None)
 
-    # Signing the edit off moves an Editing video forward to Ready — unless
-    # this same request already sets the status explicitly.
-    if fields.get("done") and "status" not in fields:
+    if fields.get("done"):
         current = conn.execute(
-            "SELECT status FROM content WHERE id = ?", (content_id,)
-        ).fetchone()["status"]
-        if current == Status.EDITING.value:
+            "SELECT status, done, assigned_to, topic FROM content WHERE id = ?",
+            (content_id,),
+        ).fetchone()
+
+        # Signing the edit off moves an Editing video forward to Ready —
+        # unless this same request already sets the status explicitly.
+        if "status" not in fields and current["status"] == Status.EDITING.value:
             assignments.append("status = ?")
             params.append(Status.READY.value)
+
+        # The FIRST sign-off with an editor assigned books their fee in the
+        # money ledger as Unpaid, so batching several videos into one payout
+        # just means flipping the entries to Paid later. Re-marking an
+        # already-done video never double-books.
+        if not current["done"] and current["assigned_to"].strip():
+            now = utc_now_iso()
+            conn.execute(
+                """INSERT INTO money (entry, amount, date, direction, party,
+                                      paid, created_at, updated_at)
+                   VALUES (?, ?, ?, 'Expense', ?, 'Unpaid', ?, ?)""",
+                (f"Editor fee — {current['topic']}", EDITOR_FEE,
+                 date.today().isoformat(), current["assigned_to"].strip(),
+                 now, now),
+            )
 
     assignments.append("updated_at = ?")
     params.extend([utc_now_iso(), content_id])

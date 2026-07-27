@@ -7,6 +7,7 @@ below and the matching colour in static/css/style.css — no DB migration needed
 because the database stores these as plain TEXT.
 """
 
+import datetime as _dt
 from datetime import date
 from enum import Enum
 from typing import Literal
@@ -170,11 +171,15 @@ class MoneyCreate(BaseModel):
     direction decides the sign."""
     entry: str = Field(default="", max_length=500)
     amount: float = Field(default=0, ge=0)
-    date: date | None = None
+    # Annotated via the module alias: a field literally named `date` would
+    # otherwise shadow the `date` type inside this class body.
+    date: _dt.date | None = None
     direction: Direction = Direction.EXPENSE
     party: str = Field(default="", max_length=200)
+    # Paid/Unpaid only applies where money is owed (editor fees); None = n/a.
+    paid: Literal["Paid", "Unpaid"] | None = None
 
-    @field_validator("date", mode="before")
+    @field_validator("date", "paid", mode="before")
     @classmethod
     def _empty_string_is_null(cls, v):
         return None if v == "" else v
@@ -184,11 +189,12 @@ class MoneyUpdate(BaseModel):
     """Partial update; same absent-vs-null semantics as ContentUpdate."""
     entry: str | None = Field(default=None, max_length=500)
     amount: float | None = Field(default=None, ge=0)
-    date: date | None = None
+    date: _dt.date | None = None
     direction: Direction | None = None
     party: str | None = Field(default=None, max_length=200)
+    paid: Literal["Paid", "Unpaid"] | None = None
 
-    @field_validator("date", mode="before")
+    @field_validator("date", "paid", mode="before")
     @classmethod
     def _empty_string_is_null(cls, v):
         return None if v == "" else v
@@ -203,6 +209,7 @@ class MoneyEntry(BaseModel):
     date: str | None
     direction: Direction
     party: str
+    paid: str | None
     signed: float
     created_at: str
     updated_at: str

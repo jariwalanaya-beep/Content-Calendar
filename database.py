@@ -16,7 +16,7 @@ import sqlite3
 from config import settings
 
 # Bump this when you change the schema, and add the matching migration below.
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # Monday-first, matching the weekly template layout.
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday",
@@ -167,6 +167,7 @@ CREATE TABLE IF NOT EXISTS money (
     date       TEXT,                           -- ISO 'YYYY-MM-DD'
     direction  TEXT NOT NULL DEFAULT 'Expense',-- Income | Expense
     party      TEXT NOT NULL DEFAULT '',       -- platform / person
+    paid       TEXT,                           -- Paid | Unpaid | NULL (n/a)
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -281,6 +282,14 @@ def _migrate(conn: sqlite3.Connection) -> None:
     # back to Idea — the nearest surviving stage before Editing.
     if current < 7:
         conn.execute("UPDATE content SET status = 'Idea' WHERE status = 'Scripting'")
+
+    # v7 -> v8: the money ledger gains a Paid/Unpaid flag for editor fees.
+    # CREATE TABLE above covers fresh databases; this upgrades one that
+    # already had the ledger.
+    if current < 8:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(money)")}
+        if "paid" not in cols:
+            conn.execute("ALTER TABLE money ADD COLUMN paid TEXT")
 
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 

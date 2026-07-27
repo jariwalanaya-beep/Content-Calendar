@@ -17,6 +17,13 @@ const DIRECTIONS = [
   { value: 'Expense', color: 'red'   },
 ];
 
+// Editor fees are booked Unpaid when a video is marked Done; flip them to
+// Paid once the payout actually happens. '—' means not applicable.
+const PAID_STATES = [
+  { value: 'Paid',   color: 'green'  },
+  { value: 'Unpaid', color: 'orange' },
+];
+
 /** '₹63,000' / '−₹1,999' with Indian digit grouping. */
 const rupees = n =>
   (n < 0 ? '−₹' : '₹') + Math.abs(Math.round(n)).toLocaleString('en-IN');
@@ -41,6 +48,10 @@ export async function renderMoney(root) {
   const income  = sum(rows.filter(m => m.direction === 'Income'));
   const expense = sum(rows.filter(m => m.direction === 'Expense'));
   const netAll  = all.reduce((s, m) => s + m.signed, 0);  // all-time, for the goal
+  // Money still owed (editor fees not yet paid out) — always all-time, since
+  // a debt does not stop existing when a filter hides it.
+  const unpaid  = sum(all.filter(m => m.direction === 'Expense'
+                                   && m.paid === 'Unpaid'));
 
   /* --- header ---------------------------------------------------------- */
   root.append(el('div', { class: 'view-header' },
@@ -96,7 +107,11 @@ export async function renderMoney(root) {
     el('div', { class: 'stat-tile' },
       el('div', { class: 'stat-value' }, rupees(income - expense)),
       el('div', { class: 'stat-label' },
-        filters.month || filters.direction ? 'Net (filtered)' : 'Net'))));
+        filters.month || filters.direction ? 'Net (filtered)' : 'Net')),
+    el('div', { class: 'stat-tile' },
+      el('div', { class: `stat-value${unpaid ? ' stat-danger' : ''}` },
+        rupees(unpaid)),
+      el('div', { class: 'stat-label' }, 'Unpaid (owed)'))));
 
   /* --- filter bar ------------------------------------------------------ */
   const months = [...new Set(all.filter(m => m.date)
@@ -143,6 +158,7 @@ export async function renderMoney(root) {
                               v => save({ direction: v }), { allowEmpty: false })),
       el('td', {}, textCell(m.party, v => save({ party: v }),
                             { placeholder: 'Platform / person' })),
+      el('td', {}, selectCell(m.paid, PAID_STATES, v => save({ paid: v }))),
       el('td', { class: `money-signed ${m.signed < 0 ? 'signed-neg'
                          : m.signed > 0 ? 'signed-pos' : ''}` },
         m.amount ? rupees(m.signed) : '—'),
@@ -163,7 +179,7 @@ export async function renderMoney(root) {
   const total = rows.reduce((s, m) => s + m.signed, 0);
   body.append(el('tr', { class: 'money-sum-row' },
     el('td', {}, 'Sum'),
-    el('td', {}), el('td', {}), el('td', {}), el('td', {}),
+    el('td', {}), el('td', {}), el('td', {}), el('td', {}), el('td', {}),
     el('td', { class: `money-signed ${total < 0 ? 'signed-neg' : 'signed-pos'}` },
       rupees(total)),
     el('td', {})));
@@ -172,6 +188,6 @@ export async function renderMoney(root) {
     el('table', { class: 'grid' },
       el('thead', {}, el('tr', {},
         ['Entry', 'Amount (₹)', 'Date', 'Direction', 'Platform / Person',
-         'Signed (₹)', ''].map(h => el('th', {}, h)))),
+         'Paid', 'Signed (₹)', ''].map(h => el('th', {}, h)))),
       body)));
 }
