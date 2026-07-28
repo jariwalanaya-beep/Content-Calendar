@@ -8,6 +8,10 @@
  * Clicking Done marks the entry complete and drops it out of the list. It does
  * NOT delete the entry — the script, notes and videos all survive. Toggle
  * "Show completed" to see finished rows and undo one.
+ *
+ * Each row also carries an "⬆ Final" button so the editor's finished cut can
+ * be uploaded right here — the delivery workflow is upload, then Done, without
+ * a detour through the library to find the entry.
  */
 
 import { api } from '../api.js';
@@ -33,6 +37,50 @@ function dueLabel(iso) {
   if (d === 1)    return { text: 'Due tomorrow',   cls: 'due-soon' };
   if (d <= 3)     return { text: `In ${d} days`,   cls: 'due-soon' };
   return { text: `In ${d} days`, cls: 'due-ok' };
+}
+
+/**
+ * The "⬆ Final" cell: a hidden file input plus a button that shows upload
+ * progress in place. The count of already-uploaded final videos rides on the
+ * button label, so a row with a delivered cut is visible at a glance.
+ */
+function finalUploadCell(item) {
+  const input = el('input', {
+    type: 'file', accept: 'video/*', multiple: 'true', style: 'display:none',
+  });
+  const btn = el('button', {
+    class: 'btn btn-sm',
+    title: item.final_count
+      ? `${item.final_count} final video${item.final_count === 1 ? '' : 's'} uploaded — add another`
+      : 'Upload the editor’s final cut straight to this entry',
+    onclick: e => { e.stopPropagation(); input.click(); },
+  }, item.final_count ? `⬆ Final · ${item.final_count}` : '⬆ Final');
+
+  input.addEventListener('change', async () => {
+    const files = [...input.files];
+    input.value = '';
+    if (!files.length) return;
+    btn.disabled = true;
+    let done = 0;
+    try {
+      // One at a time so the button can show honest per-file progress.
+      for (const file of files) {
+        const { promise } = api.uploadMedia(item.id, 'final', file,
+          (loaded, total, ratio) => {
+            btn.textContent = (files.length > 1 ? `${done + 1}/${files.length} · ` : '')
+                            + `${Math.round(ratio * 100)}%`;
+          });
+        await promise;
+        done++;
+      }
+      toast(`Uploaded ${done === 1 ? files[0].name : `${done} videos`} to “${item.topic}”`);
+    } catch (err) {
+      toast(err.message, true, 6000);
+    }
+    import('../app.js').then(m => m.refresh());
+  });
+
+  return el('span', {}, input, btn);
 }
 
 // Kept across re-renders so the toggle survives a refresh.
@@ -126,6 +174,7 @@ export async function renderDeadlines(root, state) {
            item.done ? 'Completed' : due.text)),
       el('td', {}, selectCell(item.status, STATUSES,
                               v => save({ status: v }), { allowEmpty: false })),
+      el('td', { class: 'deadline-actions' }, finalUploadCell(item)),
       el('td', { class: 'deadline-actions' }, doneBtn),
     ));
   }
@@ -133,7 +182,7 @@ export async function renderDeadlines(root, state) {
   root.append(el('div', { class: 'table-wrap' },
     el('table', { class: 'grid' },
       el('thead', {}, el('tr', {},
-        ['Topic', 'Assigned to', 'Deadline', 'Due', 'Status', '']
+        ['Topic', 'Assigned to', 'Deadline', 'Due', 'Status', 'Final video', '']
           .map(h => el('th', { style: 'cursor:default' }, h)))),
       body)));
 }

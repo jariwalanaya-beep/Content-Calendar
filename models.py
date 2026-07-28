@@ -37,8 +37,15 @@ class Performance(str, Enum):
 
 class ContentType(str, Enum):
     """Production style."""
-    SCRIPTED = "Scripted"
-    CLIPS = "Clips"
+    STORY = "Story"
+    CELEBRITY = "Celebrity"
+    THEORY = "Theory"
+    DECODE = "Decode"
+    FACT = "Fact"
+    LESSON = "Lesson"
+    HYPOTHETICAL = "Hypothetical"
+    DEBATE = "Debate"
+    PITCH = "Pitch"
 
 
 class Direction(str, Enum):

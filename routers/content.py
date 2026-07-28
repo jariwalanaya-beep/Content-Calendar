@@ -289,17 +289,20 @@ def update_content(
 
         # The FIRST sign-off with an editor assigned books their fee in the
         # money ledger as Unpaid, so batching several videos into one payout
-        # just means flipping the entries to Paid later. Re-marking an
-        # already-done video never double-books.
-        if not current["done"] and current["assigned_to"].strip():
+        # just means flipping the entries to Paid later. The content_id link
+        # (belt to the transition check's braces) makes double-booking
+        # impossible even across reopen/redo cycles.
+        if (not current["done"] and current["assigned_to"].strip()
+                and conn.execute("SELECT 1 FROM money WHERE content_id = ?",
+                                 (content_id,)).fetchone() is None):
             now = utc_now_iso()
             conn.execute(
                 """INSERT INTO money (entry, amount, date, direction, party,
-                                      paid, created_at, updated_at)
-                   VALUES (?, ?, ?, 'Expense', ?, 'Unpaid', ?, ?)""",
+                                      paid, content_id, created_at, updated_at)
+                   VALUES (?, ?, ?, 'Expense', ?, 'Unpaid', ?, ?, ?)""",
                 (f"Editor fee — {current['topic']}", EDITOR_FEE,
                  date.today().isoformat(), current["assigned_to"].strip(),
-                 now, now),
+                 content_id, now, now),
             )
 
     assignments.append("updated_at = ?")

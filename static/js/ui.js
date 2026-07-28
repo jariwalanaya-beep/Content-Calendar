@@ -21,8 +21,15 @@ export const PERFORMANCES = [
 ];
 
 export const TYPES = [
-  { value: 'Scripted',   color: 'blue'   },
-  { value: 'Clips',      color: 'orange' },
+  { value: 'Story',        color: 'blue'   },
+  { value: 'Celebrity',    color: 'yellow' },
+  { value: 'Theory',       color: 'purple' },
+  { value: 'Decode',       color: 'teal'   },
+  { value: 'Fact',         color: 'green'  },
+  { value: 'Lesson',       color: 'orange' },
+  { value: 'Hypothetical', color: 'pink'   },
+  { value: 'Debate',       color: 'red'    },
+  { value: 'Pitch',        color: 'grey'   },
 ];
 
 const colorOf = (list, value) =>

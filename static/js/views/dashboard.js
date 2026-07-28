@@ -2,12 +2,14 @@
  * Dashboard — the channel at a glance.
  *
  * A row of headline stat tiles, a completion donut, one bar chart per
- * question (pipeline, type, performance, workload), a columns-by-weekday
- * graph, and a full-width videos-per-month graph. Everything derives from the
- * same content list the other views use, so it is always current.
+ * question (pipeline, type), a performance-by-type stacked bar, an
+ * uploads-by-weekday radar, and a full-width videos-per-month graph.
+ * Everything derives from the same content list the other views use, so it
+ * is always current.
  *
- * All marks share the single accent hue (validated against the dark surface);
- * identity comes from labels, so no legend is needed anywhere.
+ * Single-series marks share the accent hue (validated against the dark
+ * surface) and identity comes from labels. The one multi-series chart, the
+ * performance stack, uses the three status colours and carries its own legend.
  */
 
 import { api } from '../api.js';
@@ -185,6 +187,13 @@ function lineCard(title, counts, { wide = false, smooth = false, area = false,
     card.append(el('div', { class: 'chart-empty' }, empty));
     return card;
   }
+  // One point is not a trend — a lone floating dot on an empty grid reads as
+  // a broken chart, so wait for a second point before drawing anything.
+  if (entries.length < 2) {
+    card.append(el('div', { class: 'chart-empty' },
+      'Only one data point so far — the line appears once there are two'));
+    return card;
+  }
 
   const W = wide ? 1240 : 610, H = 190, padL = 30, padR = 30, padT = 18, padB = 24;
   const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -310,6 +319,54 @@ function radarCard(title, counts, { empty = 'No data yet' } = {}) {
   });
 
   card.append(chart);
+  return card;
+}
+
+/**
+ * Performance-by-type card — a horizontal stacked bar per content type
+ * (Viral | Average | Failed segments in the status colours), sorted by how
+ * many rated videos the type has. The same label | bar | count anatomy as
+ * barCard, so it reads instantly next to the other cards; only types with
+ * at least one rated video get a row.
+ */
+function perfStackCard(title, items, { empty = 'No data yet' } = {}) {
+  const PERF = ['Viral', 'Average', 'Failed'];
+  const rated = items.filter(i => i.performance && i.type);
+  const groups = TYPES
+    .map(t => {
+      const of = rated.filter(i => i.type === t.value);
+      return { type: t.value,
+               counts: PERF.map(p => of.filter(i => i.performance === p).length),
+               total: of.length };
+    })
+    .filter(g => g.total > 0)
+    .sort((a, b) => b.total - a.total);
+
+  const card = el('div', { class: 'chart-card' },
+    el('div', { class: 'chart-title' }, title));
+  if (!groups.length) {
+    card.append(el('div', { class: 'chart-empty' }, empty));
+    return card;
+  }
+
+  const max = Math.max(...groups.map(g => g.total));
+  for (const g of groups) {
+    // The stack fills total/max of the track; inside it each segment's flex
+    // share is its count, and the flex gap is the 2px surface spacer.
+    card.append(el('div', { class: 'bar-row' },
+      el('div', { class: 'bar-label' }, g.type),
+      el('div', { class: 'bar-track' },
+        el('div', { class: 'stack-fill', style: `width:${(g.total / max) * 100}%` },
+          g.counts.map((n, i) => n
+            ? el('div', { class: `stack-seg perf-${PERF[i].toLowerCase()}`,
+                          style: `flex-grow:${n}`,
+                          title: `${g.type} — ${PERF[i]}: ${n}` })
+            : null))),
+      el('div', { class: 'bar-count' }, String(g.total))));
+  }
+  card.append(el('div', { class: 'chart-legend' },
+    PERF.map(p => el('span', { class: 'legend-item' },
+      el('span', { class: `legend-dot perf-${p.toLowerCase()}` }), p))));
   return card;
 }
 
@@ -451,8 +508,6 @@ export async function renderDashboard(root, state) {
 
   const byStatus = countBy(items, i => i.status, STATUSES.map(s => s.value));
   const byType = countBy(items, i => i.type, TYPES.map(t => t.value));
-  const byPerson = countBy(items.filter(i => !i.done && i.assigned_to.trim()),
-                           i => i.assigned_to.trim());
   const byWeekday = countBy(items, i => {
     if (!i.upload_date) return null;
     const dow = new Date(i.upload_date + 'T00:00:00').getDay();
@@ -469,8 +524,8 @@ export async function renderDashboard(root, state) {
     donutCard(done, items.length)));
 
   root.append(el('div', { class: 'dash-grid dash-2' },
-    barCard('Open work per person', byPerson,
-      { hideZero: true, empty: 'Nothing is assigned right now' }),
+    perfStackCard('Performance by type', items,
+      { empty: 'Rate posted videos (Viral / Average / Failed) and give them a type — the chart draws itself' }),
     radarCard('Uploads by weekday', byWeekday,
       { empty: 'No uploads dated yet' })));
 

@@ -16,7 +16,7 @@ import sqlite3
 from config import settings
 
 # Bump this when you change the schema, and add the matching migration below.
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 # Monday-first, matching the weekly template layout.
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday",
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS content (
     notes        TEXT    NOT NULL DEFAULT '',
     performance  TEXT,                          -- Viral | Average | Failed | NULL
     status       TEXT    NOT NULL DEFAULT 'Idea',  -- Idea|Editing|Ready|Posted|Failed
-    type         TEXT,                          -- Scripted | Clips | NULL
+    type         TEXT,                          -- one of models.ContentType | NULL
     upload_date  TEXT,                          -- ISO 'YYYY-MM-DD'; drives the calendar view
     script       TEXT    NOT NULL DEFAULT '',
     deadline     TEXT,                          -- ISO 'YYYY-MM-DD', the editor's due date
@@ -168,6 +168,7 @@ CREATE TABLE IF NOT EXISTS money (
     direction  TEXT NOT NULL DEFAULT 'Expense',-- Income | Expense
     party      TEXT NOT NULL DEFAULT '',       -- platform / person
     paid       TEXT,                           -- Paid | Unpaid | NULL (n/a)
+    content_id INTEGER,                        -- the video an editor fee belongs to
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -290,6 +291,30 @@ def _migrate(conn: sqlite3.Connection) -> None:
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(money)")}
         if "paid" not in cols:
             conn.execute("ALTER TABLE money ADD COLUMN paid TEXT")
+
+    # v8 -> v9: editor-fee entries link to their video via content_id, and any
+    # video finished BEFORE fee-booking existed gets its fee backfilled now,
+    # dated the day it was signed off. 500.0 mirrors EDITOR_FEE in
+    # routers/content.py.
+    if current < 9:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(money)")}
+        if "content_id" not in cols:
+            conn.execute("ALTER TABLE money ADD COLUMN content_id INTEGER")
+        now = utc_now_iso()
+        for row in conn.execute(
+            """SELECT id, topic, assigned_to, done_at FROM content
+               WHERE done = 1 AND TRIM(COALESCE(assigned_to, '')) <> ''
+                 AND id NOT IN (SELECT content_id FROM money
+                                WHERE content_id IS NOT NULL)"""
+        ).fetchall():
+            conn.execute(
+                """INSERT INTO money (entry, amount, date, direction, party,
+                                      paid, content_id, created_at, updated_at)
+                   VALUES (?, 500.0, ?, 'Expense', ?, 'Unpaid', ?, ?, ?)""",
+                (f"Editor fee — {row['topic']}",
+                 (row["done_at"] or now)[:10],
+                 row["assigned_to"].strip(), row["id"], now, now),
+            )
 
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 

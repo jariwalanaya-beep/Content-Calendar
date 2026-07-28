@@ -54,7 +54,7 @@ with TestClient(main.app) as client:
     print("\n== content CRUD ==")
     r = client.post("/api/content", json={
         "topic": "Ancient Mysteries", "assigned_to": "Editor",
-        "status": "Idea", "type": "Scripted",
+        "status": "Idea", "type": "Story",
         "upload_date": "2026-07-15", "script": "Line one.",
     })
     check("create", r.status_code == 201, r.text)
