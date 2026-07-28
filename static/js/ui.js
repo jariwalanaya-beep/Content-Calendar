@@ -6,30 +6,36 @@
  * STATUSES below plus a .chip-<colour> rule in style.css.
  */
 
+/*
+ * Chip tones, not hues. The palette is one accent ramp (t1 → t3, quiet to
+ * loud) plus neutral, warn and bad — so a screen full of chips reads as one
+ * system instead of a bag of colours. Changing --accent in style.css restyles
+ * every chip at once, because the tones are mixed from it.
+ */
 export const STATUSES = [
-  { value: 'Idea',      color: 'grey'   },
-  { value: 'Editing',   color: 'orange' },
-  { value: 'Ready',     color: 'blue'   },
-  { value: 'Posted',    color: 'green'  },
-  { value: 'Failed',    color: 'red'    },
+  { value: 'Idea',      color: 'n'    },
+  { value: 'Editing',   color: 'warn' },
+  { value: 'Ready',     color: 't1'   },
+  { value: 'Posted',    color: 't3'   },
+  { value: 'Failed',    color: 'bad'  },
 ];
 
 export const PERFORMANCES = [
-  { value: 'Viral',   color: 'green'  },
-  { value: 'Average', color: 'orange' },
-  { value: 'Failed',  color: 'red'    },
+  { value: 'Viral',   color: 't3'   },
+  { value: 'Average', color: 'warn' },
+  { value: 'Failed',  color: 'bad'  },
 ];
 
 export const TYPES = [
-  { value: 'Story',        color: 'blue'   },
-  { value: 'Celebrity',    color: 'yellow' },
-  { value: 'Theory',       color: 'purple' },
-  { value: 'Decode',       color: 'teal'   },
-  { value: 'Fact',         color: 'green'  },
-  { value: 'Lesson',       color: 'orange' },
-  { value: 'Hypothetical', color: 'pink'   },
-  { value: 'Debate',       color: 'red'    },
-  { value: 'Pitch',        color: 'grey'   },
+  { value: 'Story',        color: 't2'   },
+  { value: 'Celebrity',    color: 'warn' },
+  { value: 'Theory',       color: 't1'   },
+  { value: 'Decode',       color: 't1'   },
+  { value: 'Fact',         color: 't3'   },
+  { value: 'Lesson',       color: 'n'    },
+  { value: 'Hypothetical', color: 't2'   },
+  { value: 'Debate',       color: 'bad'  },
+  { value: 'Pitch',        color: 'n'    },
 ];
 
 const colorOf = (list, value) =>

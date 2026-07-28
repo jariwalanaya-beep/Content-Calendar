@@ -56,6 +56,14 @@ Hypothetical, Debate, Pitch. `Performance`: Viral / Average / Failed.
 endpoints crash on old rows (response validation), so migrate or NULL the
 old values in `content` when changing a vocabulary.
 
+## Deadlines view ([deadlines.js](static/js/views/deadlines.js))
+
+The editor-delivery workflow: each row has a **⬆ Final** button that uploads
+the finished cut straight to that entry's `final` media bucket (via
+`api.uploadMedia`, progress shown on the button), then **✓ Done** clears the
+row. The button label carries the existing final-video count
+(`⬆ Final · 2`). Done only sets `done = 1` — it never deletes anything.
+
 ## Frontend routing
 
 Hash router in [app.js](static/js/app.js). Valid routes: `#/library`,
