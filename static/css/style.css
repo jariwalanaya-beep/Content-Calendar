@@ -2,52 +2,90 @@
    Content Hub — stylesheet  (dark only)
 
    Sections
-     1. Tokens          colours, spacing, type — restyle the app from here
+     1. Tokens          ramps, colours, spacing, type — restyle from here
      2. Base + layout
      3. Components      buttons, chips, inputs, toasts, dialog
      4. Views           table, deadlines, calendar, detail, weekly
 
-   Status colours live in section 3 under "Chips" and mirror the enums in
-   models.py. Adding a Status = add a .chip-<colour> rule there.
+   COLOUR SYSTEM
+   Every hue is a four-step ramp: 50 (near-white), 200 (light), 400 (pure),
+   900 (deep). On a dark surface the roles invert from the usual light-theme
+   habit — the DEEP step is the fill and the LIGHT step is the ink sitting on
+   it. That one rule produces every chip, badge and tag in the app:
+
+       background: <hue>-900 (softened)      color: <hue>-200
+
+   Blue is the interactive accent (links, buttons, focus, single-series
+   charts). Green means good — Posted, Viral, money coming in. Amber means
+   in-progress or attention. Red means failed or overdue. Tone names in
+   ui.js (`t1`/`t2`/`t3`/`warn`/`bad`/`n`) map onto these ramps, so changing
+   a ramp here restyles every chip at once.
    ========================================================================== */
 
 /* --- 1. Tokens ----------------------------------------------------------- */
 :root {
   color-scheme: dark;
 
-  /* Greys: a cool near-black, layered so panels read as raised, not outlined. */
-  --bg:            #0c0c0f;
-  --bg-elevated:   #131318;
-  --surface:       #16161c;
-  --surface-2:     #1c1c24;
-  --surface-hover: #22222b;
-  --border:        #26262f;
-  --border-strong: #363642;
+  /* Ramps ---------------------------------------------------------------- */
+  --blue-50:   #e3f2fd;
+  --blue-200:  #90caf9;
+  --blue-400:  #2196f3;
+  --blue-900:  #0d47a1;
 
-  --text:          #edecf2;
-  --text-muted:    #9997a8;
-  --text-faint:    #6b6979;
+  --green-50:  #e8f5e9;
+  --green-200: #a5d6a7;
+  --green-400: #66bb6a;
+  --green-900: #1b5e20;
 
-  /* Violet accent, deliberately outside the six status hues so it never
-     reads as a status. */
-  --accent:        #8b7bff;
-  --accent-hover:  #a094ff;
-  --accent-dim:    #6f5fe0;
-  --accent-glow:   rgba(139, 123, 255, .18);
-  --accent-faint:  rgba(139, 123, 255, .09);
+  /* Amber and red follow the same 50/200/400/900 shape so the whole set
+     reads as one family rather than four unrelated colours. */
+  --amber-50:  #fff8e1;
+  --amber-200: #ffcc80;
+  --amber-400: #ffa726;
+  --amber-900: #e65100;
 
-  --danger:        #ff6b60;
-  --success:       #4ec98a;
+  --red-50:    #ffebee;
+  --red-200:   #ef9a9a;
+  --red-400:   #ef5350;
+  --red-900:   #b71c1c;
 
-  --radius-sm: 5px;
-  --radius:    8px;
-  --radius-lg: 12px;
+  /* Greys: a cool near-black, layered so panels read as raised, not outlined.
+     Tinted very slightly toward blue so they sit with the accent. */
+  --bg:            #0a0c0f;
+  --bg-elevated:   #0f1216;
+  --surface:       #13171c;
+  --surface-2:     #1a1f26;
+  --surface-hover: #222831;
+  --border:        #1f252d;
+  --border-strong: #2c343e;
 
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
-  --shadow:    0 2px 6px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.4);
-  --shadow-lg: 0 12px 32px rgba(0,0,0,.55), 0 4px 12px rgba(0,0,0,.4);
+  --text:          #e8eef2;
+  --text-muted:    #93a0ad;
+  --text-faint:    #64707d;
 
-  --topbar-h: 54px;
+  /* Accent = blue 400. Everything interactive derives from it. */
+  --accent:        var(--blue-400);
+  --accent-hover:  #64b5f6;
+  --accent-dim:    #1976d2;
+  --accent-deep:   var(--blue-900);
+  --accent-glow:   rgba(33, 150, 243, .20);
+  --accent-faint:  rgba(33, 150, 243, .10);
+  /* Ink that sits ON a saturated accent fill — near-black, not white. */
+  --on-accent:     #04121f;
+
+  --danger:        var(--red-400);
+  --warn:          var(--amber-400);
+  --success:       var(--green-400);
+
+  --radius-sm: 7px;
+  --radius:    9px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.45);
+  --shadow:    0 2px 6px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.45);
+  --shadow-lg: 0 14px 36px rgba(0,0,0,.6), 0 4px 12px rgba(0,0,0,.45);
+
+  --topbar-h: 56px;
   --ease: cubic-bezier(.4, 0, .2, 1);
 
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -68,7 +106,15 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-body { padding-bottom: 34px; }
+/* A single wide accent bloom behind the top-left corner: it stops the page
+   reading as a flat black rectangle without tinting any actual content. */
+body {
+  padding-bottom: 34px;
+  background:
+    radial-gradient(1200px 420px at 18% -10%, var(--accent-faint), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
 a { color: inherit; text-decoration: none; }
 
 ::selection { background: var(--accent-glow); color: #fff; }
@@ -81,36 +127,37 @@ a { color: inherit; text-decoration: none; }
   background: var(--border-strong); border-radius: 6px;
   border: 2px solid var(--bg);
 }
-::-webkit-scrollbar-thumb:hover { background: #45454f; }
+::-webkit-scrollbar-thumb:hover { background: #3a4450; }
 
 /* Top bar ----------------------------------------------------------------- */
 .topbar {
   position: sticky; top: 0; z-index: 50;
-  display: flex; align-items: center; gap: 22px;
+  display: flex; align-items: center; gap: 24px;
   height: var(--topbar-h);
-  padding: 0 20px;
-  background: rgba(12,12,15,.82);
-  backdrop-filter: blur(14px) saturate(160%);
+  padding: 0 22px;
+  background: rgba(10,12,15,.86);
+  backdrop-filter: blur(14px) saturate(150%);
   border-bottom: 1px solid var(--border);
 }
 
-.brand { display: flex; align-items: center; gap: 9px; }
+.brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark {
   display: grid; place-items: center;
   width: 26px; height: 26px; border-radius: 7px;
-  background: linear-gradient(145deg, var(--accent), var(--accent-dim));
-  font-size: 13px;
-  box-shadow: 0 2px 10px var(--accent-glow);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px; font-weight: 800; letter-spacing: .02em;
+  box-shadow: 0 2px 12px var(--accent-glow);
 }
 .brand-name {
-  font-weight: 650; font-size: 13px;
-  letter-spacing: .07em; text-transform: uppercase;
+  font-weight: 650; font-size: 12.5px;
+  letter-spacing: .09em; text-transform: uppercase;
   white-space: nowrap;
 }
 
-/* min-width + overflow keep the six links usable on narrow windows: the nav
+/* min-width + overflow keep the seven links usable on narrow windows: the nav
    scrolls sideways instead of pushing the search box off screen. */
-.section-nav { display: flex; gap: 3px; min-width: 0; overflow-x: auto; }
+.section-nav { display: flex; gap: 2px; min-width: 0; overflow-x: auto; }
 .section-link {
   position: relative;
   padding: 6px 12px; border-radius: var(--radius-sm);
@@ -123,9 +170,9 @@ a { color: inherit; text-decoration: none; }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 
 .search-wrap { position: relative; display: flex; align-items: center; }
-.search-icon { position: absolute; left: 10px; color: var(--text-faint); pointer-events: none; }
+.search-icon { position: absolute; left: 11px; color: var(--text-faint); pointer-events: none; }
 #search {
-  width: 220px; padding: 7px 11px 7px 30px;
+  width: 250px; padding: 7px 12px 7px 32px;
   background: var(--surface);
   border: 1px solid var(--border); border-radius: var(--radius);
   color: var(--text); font: inherit; font-size: 13px;
@@ -133,18 +180,18 @@ a { color: inherit; text-decoration: none; }
 }
 #search::placeholder { color: var(--text-faint); }
 #search:focus {
-  outline: none; width: 280px;
-  border-color: var(--accent-dim);
+  outline: none; width: 300px;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 #search::-webkit-search-cancel-button { cursor: pointer; filter: invert(.6); }
 
-.view { padding: 26px 26px 48px; max-width: 1560px; margin: 0 auto; }
+.view { padding: 28px 26px 64px; max-width: 1520px; margin: 0 auto; }
 /* Views fade up as the router swaps them, so navigation feels placed, not
    flashed. Cheap: only animates the freshly inserted nodes. */
 #view > * { animation: viewin .22s var(--ease) both; }
 @keyframes viewin {
-  from { opacity: 0; transform: translateY(5px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
 
@@ -152,8 +199,8 @@ a { color: inherit; text-decoration: none; }
 .footer {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
   display: flex; gap: 18px; align-items: center;
-  padding: 6px 18px;
-  background: rgba(12,12,15,.9);
+  padding: 7px 20px;
+  background: rgba(10,12,15,.92);
   backdrop-filter: blur(10px);
   border-top: 1px solid var(--border);
   color: var(--text-faint); font-size: 11px; font-family: var(--mono);
@@ -165,58 +212,63 @@ a { color: inherit; text-decoration: none; }
 /* Buttons */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 7px 13px;
+  padding: 7px 14px;
   background: var(--surface-2);
   border: 1px solid var(--border-strong); border-radius: var(--radius);
-  color: var(--text); font: inherit; font-size: 13px; font-weight: 500;
+  color: var(--text); font: inherit; font-size: 13px; font-weight: 550;
   cursor: pointer; white-space: nowrap;
   transition: background .14s var(--ease), border-color .14s var(--ease),
               transform .08s var(--ease);
 }
-.btn:hover { background: var(--surface-hover); border-color: #43434f; }
+.btn:hover { background: var(--surface-hover); border-color: #3a4450; }
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
 
+/* The one saturated fill in the app: solid accent with near-black ink, which
+   holds contrast far better than white-on-blue at this size. */
 .btn-primary {
-  background: linear-gradient(145deg, var(--accent), var(--accent-dim));
-  border-color: transparent; color: #fff; font-weight: 600;
-  box-shadow: 0 2px 12px var(--accent-glow);
+  background: var(--accent);
+  border-color: transparent; color: var(--on-accent); font-weight: 650;
+  box-shadow: 0 2px 14px var(--accent-glow);
 }
-.btn-primary:hover { filter: brightness(1.1); border-color: transparent; }
+.btn-primary:hover { background: var(--accent-hover); border-color: transparent; }
 
-.btn-danger { background: var(--danger); border-color: transparent; color: #250b08; font-weight: 600; }
-.btn-danger:hover { filter: brightness(1.1); }
+.btn-danger {
+  background: var(--danger); border-color: transparent;
+  color: #2a0806; font-weight: 650;
+}
+.btn-danger:hover { filter: brightness(1.08); }
 
 .btn-ghost { background: transparent; border-color: transparent; color: var(--text-muted); }
 .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
 
-.btn-sm { padding: 4px 9px; font-size: 12px; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 
 /* View header */
 .view-header {
   display: flex; align-items: center; gap: 14px;
-  flex-wrap: wrap; margin-bottom: 18px;
+  flex-wrap: wrap; margin-bottom: 20px;
 }
 .view-title {
-  font-size: 25px; font-weight: 700; letter-spacing: -.025em; margin: 0;
+  font-size: 26px; font-weight: 750; letter-spacing: -.03em; margin: 0;
 }
-.view-sub { color: var(--text-muted); font-size: 13px; }
+.view-sub { color: var(--text-faint); font-size: 12.5px; font-family: var(--mono); }
 .spacer { margin-left: auto; }
 
 /* Filter bar (table view) ------------------------------------------------- */
 .filter-bar {
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px;
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
   margin-bottom: 16px;
 }
-.filter-field { display: flex; flex-direction: column; gap: 4px; }
+.filter-field { display: flex; flex-direction: column; gap: 5px; }
 .filter-label {
-  font-size: 10px; font-weight: 600; letter-spacing: .06em;
+  font-size: 10px; font-weight: 650; letter-spacing: .08em;
   text-transform: uppercase; color: var(--text-faint); padding-left: 2px;
 }
 .filter-select {
   appearance: none; cursor: pointer;
-  min-width: 132px; padding: 7px 30px 7px 11px;
+  min-width: 140px; padding: 7px 30px 7px 11px;
   background: var(--surface-2); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   font: inherit; font-size: 13px; font-weight: 500;
@@ -229,17 +281,20 @@ a { color: inherit; text-decoration: none; }
 }
 .filter-select:hover { background-color: var(--surface-hover); border-color: var(--border-strong); }
 .filter-select:focus {
-  outline: none; border-color: var(--accent-dim);
+  outline: none; border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 .filter-select option { background: var(--surface-2); color: var(--text); }
 .filter-clear { align-self: flex-end; margin-bottom: 1px; }
 
 /* Chips ------------------------------------------------------------------- */
+/* Deep fill + light ink, per the ramp rule at the top of this file. The
+   colour-mix softens the 900 step so it sits on the surface rather than
+   punching a hole in it. */
 .chip {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 9px; border-radius: 6px;
-  font-size: 12px; font-weight: 550; line-height: 1.45;
+  padding: 3px 9px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 600; line-height: 1.45;
   white-space: nowrap; letter-spacing: .01em;
 }
 /* Leading dot gives each chip a colour cue even at a glance. */
@@ -249,15 +304,15 @@ a { color: inherit; text-decoration: none; }
 }
 .chip-empty::before { display: none; }
 
-.chip-grey   { background: #2b2b33; color: #b0aec0; }
-.chip-yellow { background: #3a3218; color: #f2d17c; }
-.chip-orange { background: #3d2a19; color: #f7ab72; }
-.chip-blue   { background: #17303f; color: #7ec5ee; }
-.chip-green  { background: #16301f; color: #6cd39a; }
-.chip-red    { background: #3a1e1e; color: #ff8f85; }
-.chip-purple { background: #2c1e3f; color: #c9a2f5; }
-.chip-teal   { background: #10333a; color: #6fd6d0; }
-.chip-pink   { background: #3a1e30; color: #f58fc0; }
+/* n — neutral: no state worth colouring (Idea, Lesson, Pitch). */
+.chip-n    { background: var(--surface-hover); color: var(--text-muted); }
+/* t1 / t2 — the two identity tones, blue then green, at low intensity. */
+.chip-t1   { background: color-mix(in oklab, var(--blue-900) 52%, transparent);  color: var(--blue-200); }
+.chip-t2   { background: color-mix(in oklab, var(--green-900) 58%, transparent); color: var(--green-200); }
+/* t3 — the loud one: a finished, good outcome (Posted, Viral, Fact). */
+.chip-t3   { background: var(--green-900); color: var(--green-50); }
+.chip-warn { background: color-mix(in oklab, var(--amber-900) 42%, transparent); color: var(--amber-200); }
+.chip-bad  { background: color-mix(in oklab, var(--red-900) 52%, transparent);   color: var(--red-200); }
 .chip-empty  { background: transparent; color: var(--text-faint); font-weight: 400; }
 
 /* Inline-editable inputs -------------------------------------------------- */
@@ -272,7 +327,7 @@ a { color: inherit; text-decoration: none; }
 .cell-input:hover, .cell-date:hover { background: var(--surface-2); }
 .cell-input:focus, .cell-select:focus, .cell-date:focus {
   outline: none; background: var(--surface);
-  border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-glow);
+  border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
 }
 .cell-date { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
 .cell-date::-webkit-calendar-picker-indicator { filter: invert(.55); cursor: pointer; }
@@ -281,11 +336,11 @@ a { color: inherit; text-decoration: none; }
    match the current value, so the table reads like Notion's coloured
    properties instead of a row of plain dropdowns. */
 .cell-select {
-  width: auto; min-width: 96px; max-width: 100%;
+  width: auto; min-width: 100px; max-width: 100%;
   appearance: none; cursor: pointer;
   padding: 4px 24px 4px 10px;
-  font-size: 12px; font-weight: 550;
-  border-radius: 6px;
+  font-size: 12px; font-weight: 600;
+  border-radius: var(--radius-sm);
   background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
                     linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-position: calc(100% - 13px) 53%, calc(100% - 9px) 53%;
@@ -293,31 +348,28 @@ a { color: inherit; text-decoration: none; }
   background-repeat: no-repeat;
 }
 .cell-select option { background: var(--surface-2); color: var(--text); font-weight: 500; }
-.cell-select:hover { filter: brightness(1.2); }
+.cell-select:hover { filter: brightness(1.18); }
 .cell-select:focus { filter: none; }
 
 /* Chip colours for the select itself. Two classes beats the single-class
    `.cell-select { background: transparent }` above, and setting only
    background-COLOR leaves the arrow (a background-image) intact — the
    shorthand used by the plain .chip-* rules would wipe it out. */
-.cell-select.chip-grey   { background-color: #2b2b33; color: #b0aec0; }
-.cell-select.chip-yellow { background-color: #3a3218; color: #f2d17c; }
-.cell-select.chip-orange { background-color: #3d2a19; color: #f7ab72; }
-.cell-select.chip-blue   { background-color: #17303f; color: #7ec5ee; }
-.cell-select.chip-green  { background-color: #16301f; color: #6cd39a; }
-.cell-select.chip-red    { background-color: #3a1e1e; color: #ff8f85; }
-.cell-select.chip-purple { background-color: #2c1e3f; color: #c9a2f5; }
-.cell-select.chip-teal   { background-color: #10333a; color: #6fd6d0; }
-.cell-select.chip-pink   { background-color: #3a1e30; color: #f58fc0; }
-.cell-select.chip-empty  { background-color: transparent; color: var(--text-faint); font-weight: 400; }
+.cell-select.chip-n     { background-color: var(--surface-hover); color: var(--text-muted); }
+.cell-select.chip-t1    { background-color: color-mix(in oklab, var(--blue-900) 52%, transparent);  color: var(--blue-200); }
+.cell-select.chip-t2    { background-color: color-mix(in oklab, var(--green-900) 58%, transparent); color: var(--green-200); }
+.cell-select.chip-t3    { background-color: var(--green-900); color: var(--green-50); }
+.cell-select.chip-warn  { background-color: color-mix(in oklab, var(--amber-900) 42%, transparent); color: var(--amber-200); }
+.cell-select.chip-bad   { background-color: color-mix(in oklab, var(--red-900) 52%, transparent);   color: var(--red-200); }
+.cell-select.chip-empty { background-color: transparent; color: var(--text-faint); font-weight: 400; }
 /* The ::before dot on .chip must not apply here — selects cannot render it. */
 .cell-select::before { display: none; }
 
 /* Save confirmation flash */
 .saved { animation: saveflash .75s var(--ease); }
 @keyframes saveflash {
-  0%   { box-shadow: 0 0 0 3px rgba(78,201,138,.45); }
-  100% { box-shadow: 0 0 0 3px rgba(78,201,138,0); }
+  0%   { box-shadow: 0 0 0 3px color-mix(in oklab, var(--green-400) 45%, transparent); }
+  100% { box-shadow: 0 0 0 3px transparent; }
 }
 
 /* Toasts ------------------------------------------------------------------ */
@@ -326,16 +378,16 @@ a { color: inherit; text-decoration: none; }
   display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
 }
 .toast {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 9px;
   padding: 10px 15px; border-radius: var(--radius);
   background: var(--surface-2); color: var(--text);
   border: 1px solid var(--border-strong);
-  border-left: 3px solid var(--success);
+  border-left: 3px solid var(--accent);
   font-size: 13px; box-shadow: var(--shadow-lg);
   animation: toastin .2s var(--ease); max-width: 400px;
 }
 .toast-error { border-left-color: var(--danger); }
-@keyframes toastin { from { opacity: 0; transform: translateX(12px); } }
+@keyframes toastin { from { opacity: 0; transform: translateY(8px); } }
 
 /* Dialog ------------------------------------------------------------------ */
 .dialog {
@@ -345,20 +397,20 @@ a { color: inherit; text-decoration: none; }
   box-shadow: var(--shadow-lg);
   animation: dialogin .18s var(--ease);
 }
-.dialog::backdrop { background: rgba(0,0,0,.65); backdrop-filter: blur(3px); }
-.dialog h3 { margin: 0 0 10px; font-size: 17px; letter-spacing: -.01em; }
+.dialog::backdrop { background: rgba(0,0,0,.68); backdrop-filter: blur(3px); }
+.dialog h3 { margin: 0 0 10px; font-size: 17px; letter-spacing: -.015em; }
 .dialog p  { margin: 0 0 22px; color: var(--text-muted); font-size: 13.5px; line-height: 1.6; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; }
 @keyframes dialogin { from { opacity: 0; transform: scale(.97) translateY(6px); } }
 
 /* Empty / loading --------------------------------------------------------- */
 .empty {
-  padding: 64px 20px; text-align: center; color: var(--text-faint);
-  border: 1px dashed var(--border); border-radius: var(--radius-lg);
+  padding: 60px 20px; text-align: center; color: var(--text-faint);
+  border: 1px dashed var(--border-strong); border-radius: var(--radius-lg);
   background: linear-gradient(180deg, var(--surface) 0%, transparent 100%);
 }
 .empty-icon { font-size: 32px; display: block; margin-bottom: 12px; opacity: .5; }
-.empty > div:nth-child(2) { color: var(--text-muted); font-size: 15px; font-weight: 500; }
+.empty > div:nth-child(2) { color: var(--text-muted); font-size: 15px; font-weight: 550; }
 .loading { padding: 48px; text-align: center; color: var(--text-faint); font-size: 13px; }
 
 /* --- 4a. Table ----------------------------------------------------------- */
@@ -367,27 +419,27 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border); border-radius: var(--radius-lg);
   background: var(--surface); box-shadow: var(--shadow-sm);
 }
-table.grid { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1040px; }
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1060px; }
 
 table.grid th {
   /* Sticks to the top of .table-wrap, the nearest scroll container. Offsetting
      by the topbar height here would push the header down OVER the first rows. */
   position: sticky; top: 0; z-index: 10;
-  padding: 10px 12px; text-align: left;
+  padding: 11px 12px; text-align: left;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
-  color: var(--text-faint); font-weight: 650; font-size: 11px;
-  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-faint); font-weight: 650; font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: .08em;
   white-space: nowrap; cursor: pointer; user-select: none;
   transition: color .13s var(--ease);
 }
 table.grid th:hover { color: var(--text-muted); }
 table.grid th.sorted { color: var(--accent-hover); }
-table.grid th .sort-arrow { opacity: .35; margin-left: 4px; font-size: 9px; }
+table.grid th .sort-arrow { opacity: .35; margin-left: 5px; font-size: 9px; }
 table.grid th.sorted .sort-arrow { opacity: 1; }
 
 table.grid td {
-  padding: 4px 8px; border-bottom: 1px solid var(--border);
+  padding: 5px 8px; border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 table.grid tbody tr { transition: background .13s var(--ease); }
@@ -402,15 +454,25 @@ table.grid tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--accen
 
 .col-topic { min-width: 280px; }
 .topic-link {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 9px;
   font-weight: 500; padding: 7px 8px; cursor: pointer;
   border-radius: var(--radius-sm);
   transition: color .13s var(--ease);
 }
 .topic-link:hover { color: var(--accent-hover); }
+/* Status edge standing at the head of every topic — the ramps' 400 steps,
+   matching the Deadlines card edge so both lists read the same way. */
+.topic-edge { width: 3px; height: 18px; border-radius: 2px; flex: none; }
+.topic-edge.edge-n    { background: var(--border-strong); }
+.topic-edge.edge-t1   { background: var(--blue-400); }
+.topic-edge.edge-t2   { background: var(--green-200); }
+.topic-edge.edge-t3   { background: var(--green-400); }
+.topic-edge.edge-warn { background: var(--amber-400); }
+.topic-edge.edge-bad  { background: var(--red-400); }
+
 .attach-badge {
-  color: var(--text-faint); font-size: 11px; font-family: var(--mono);
-  background: var(--surface-hover); padding: 1px 6px; border-radius: 4px;
+  color: var(--text-faint); font-size: 10.5px; font-family: var(--mono);
+  border: 1px solid var(--border-strong); padding: 0 5px; border-radius: 4px;
 }
 .row-actions { text-align: right; white-space: nowrap; }
 .row-actions .btn { opacity: 0; transition: opacity .13s var(--ease), color .13s var(--ease); }
@@ -421,11 +483,11 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .card-date { font-family: var(--mono); }   /* month view's date badge */
 
 .stat-row {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
   gap: 12px; margin-bottom: 18px;
 }
 .stat-tile {
-  padding: 16px 18px;
+  padding: 17px 18px;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
   transition: border-color .15s var(--ease), transform .15s var(--ease);
@@ -433,14 +495,14 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .stat-tile:hover { border-color: var(--border-strong); transform: translateY(-1px); }
 /* Proportional figures: equal-width digits look loose at display sizes. */
 .stat-value {
-  font-size: 30px; font-weight: 750; letter-spacing: -.03em;
-  line-height: 1.1;
+  font-size: 31px; font-weight: 780; letter-spacing: -.035em;
+  line-height: 1.05;
 }
 .stat-danger { color: var(--danger); }
 .stat-label {
-  margin-top: 4px;
-  color: var(--text-faint); font-size: 10.5px; font-weight: 650;
-  text-transform: uppercase; letter-spacing: .07em;
+  margin-top: 5px;
+  color: var(--text-faint); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .09em;
 }
 
 /* Two rows of three equal cards. Cards in a row stretch to the same height,
@@ -456,14 +518,14 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   .dash-grid { grid-template-columns: 1fr; }
 }
 .chart-card {
-  padding: 16px 18px 14px;
+  padding: 17px 18px 15px;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
 }
 .chart-title {
-  margin-bottom: 12px;
-  color: var(--text-muted); font-size: 12px; font-weight: 650;
-  text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 14px;
+  color: var(--text-muted); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .09em;
 }
 .chart-empty { color: var(--text-faint); font-size: 13px; padding: 10px 0 6px; }
 
@@ -472,14 +534,14 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .bar-row {
   display: grid; grid-template-columns: 110px 1fr 32px;
   align-items: center; gap: 10px;
-  padding: 3px 0; border-radius: var(--radius-sm);
+  padding: 4px 0; border-radius: var(--radius-sm);
 }
 .bar-row:hover { background: var(--surface-2); }
 .bar-label {
   color: var(--text-muted); font-size: 12.5px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.bar-track { height: 14px; background: var(--surface-2); border-radius: 0 4px 4px 0; }
+.bar-track { height: 13px; background: var(--surface-2); border-radius: 0 4px 4px 0; }
 .bar-fill {
   height: 100%; min-width: 2px;
   background: var(--accent);
@@ -487,7 +549,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   transition: width .35s var(--ease);
 }
 .bar-count {
-  color: var(--text); font-size: 12px; font-weight: 600;
+  color: var(--text); font-size: 12px; font-weight: 650;
   font-variant-numeric: tabular-nums; text-align: right; padding-right: 4px;
 }
 /* Zero rows: keep the slot, mute the ink, draw no fill. */
@@ -499,7 +561,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .colchart { width: 100%; height: auto; display: block; }
 .colchart .gridline { stroke: var(--border); stroke-width: 1; }
 .colchart .axis-label { fill: var(--text-faint); font-size: 10px; font-family: var(--mono); }
-.colchart .col-value { fill: var(--text-muted); font-size: 10px; font-weight: 600; }
+.colchart .col-value { fill: var(--text-muted); font-size: 10px; font-weight: 650; }
 .colchart .col-bar { fill: var(--accent); transition: fill .13s var(--ease); }
 .colchart .col-bar:hover { fill: var(--accent-hover); }
 
@@ -519,23 +581,24 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .radar-fill { fill: var(--accent-glow); stroke: var(--accent); stroke-width: 2; }
 
 /* Performance stack — Viral | Average | Failed segments inside the shared
-   bar track. Status colours validated against the dark surface; the flex
-   gap is the 2px spacer between segments. */
+   bar track. These three are the ramps' 400 steps: the only place in the app
+   where three hues sit side by side, so they must stay distinguishable.
+   The flex gap is the 2px spacer between segments. */
 .stack-fill { display: flex; gap: 2px; height: 100%; }
 .stack-seg { min-width: 4px; }
 .stack-seg:last-child { border-radius: 0 4px 4px 0; }
-.stack-seg.perf-viral   { background: #2fa568; }
-.stack-seg.perf-average { background: #b98d18; }
-.stack-seg.perf-failed  { background: #bd3454; }
+.stack-seg.perf-viral   { background: var(--green-400); }
+.stack-seg.perf-average { background: var(--amber-400); }
+.stack-seg.perf-failed  { background: var(--red-400); }
 .chart-legend {
   display: flex; gap: 16px; justify-content: center;
-  font-size: 12px; color: var(--text-muted); padding: 6px 0 2px;
+  font-size: 12px; color: var(--text-muted); padding: 8px 0 2px;
 }
 .legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-.legend-dot.perf-viral   { background: #2fa568; }
-.legend-dot.perf-average { background: #b98d18; }
-.legend-dot.perf-failed  { background: #bd3454; }
+.legend-dot.perf-viral   { background: var(--green-400); }
+.legend-dot.perf-average { background: var(--amber-400); }
+.legend-dot.perf-failed  { background: var(--red-400); }
 
 /* Half-width pair below the three-card rows. */
 .dash-grid + .dash-grid { margin-top: 12px; }
@@ -550,19 +613,19 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   justify-content: center;
 }
 .donut-card .chart-title { align-self: flex-start; margin-right: auto; }
-.donut { width: 150px; height: 150px; }
+.donut { width: 152px; height: 152px; }
 .donut-track { fill: none; stroke: var(--surface-2); stroke-width: 14; }
 .donut-arc {
   fill: none; stroke: var(--accent); stroke-width: 14;
   stroke-linecap: round;
   transition: stroke-dasharray .4s var(--ease);
 }
-.donut-pct { fill: var(--text); font-size: 26px; font-weight: 750; }
+.donut-pct { fill: var(--text); font-size: 27px; font-weight: 780; }
 .donut-sub { fill: var(--text-faint); font-size: 10.5px; font-family: var(--mono); }
 
 /* --- 4c. Calendar -------------------------------------------------------- */
-.cal-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-.cal-month-label { font-size: 19px; font-weight: 650; letter-spacing: -.02em; min-width: 170px; }
+.cal-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.cal-month-label { font-size: 20px; font-weight: 700; letter-spacing: -.025em; min-width: 180px; }
 .cal-grid {
   display: grid; grid-template-columns: repeat(7, minmax(0,1fr));
   border: 1px solid var(--border); border-radius: var(--radius-lg);
@@ -570,31 +633,31 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   box-shadow: var(--shadow-sm);
 }
 .cal-dow {
-  background: var(--bg-elevated); padding: 9px 8px;
-  font-size: 10.5px; font-weight: 650; color: var(--text-faint);
-  text-transform: uppercase; letter-spacing: .08em; text-align: center;
+  background: var(--bg-elevated); padding: 10px 8px;
+  font-size: 10px; font-weight: 700; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: .1em; text-align: center;
 }
 .cal-day {
-  background: var(--surface); min-height: 116px; padding: 7px;
+  background: var(--surface); min-height: 120px; padding: 8px;
   display: flex; flex-direction: column; gap: 4px;
   transition: background .13s var(--ease);
 }
 .cal-day:hover { background: var(--surface-2); }
 .cal-day.other-month { background: var(--bg-elevated); }
-.cal-day.other-month .cal-daynum { color: #45444f; }
+.cal-day.other-month .cal-daynum { color: #39424d; }
 .cal-day.today { background: var(--accent-faint); box-shadow: inset 0 0 0 1px var(--accent-dim); }
-.cal-daynum { font-size: 11.5px; font-weight: 600; color: var(--text-faint); font-family: var(--mono); }
+.cal-daynum { font-size: 11px; font-weight: 650; color: var(--text-faint); font-family: var(--mono); }
 .cal-day.today .cal-daynum {
-  color: #fff; background: var(--accent);
+  color: var(--on-accent); background: var(--accent);
   width: 21px; height: 21px; border-radius: 50%;
   display: grid; place-items: center; font-size: 11px;
 }
 .cal-event {
-  font-size: 11px; padding: 3px 7px; border-radius: 5px;
+  font-size: 11px; padding: 4px 7px; border-radius: 6px;
   cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-weight: 500; transition: filter .13s var(--ease);
+  font-weight: 550; transition: filter .13s var(--ease);
 }
-.cal-event:hover { filter: brightness(1.28); }
+.cal-event:hover { filter: brightness(1.25); }
 .cal-more { font-size: 10px; color: var(--text-faint); padding-left: 5px; }
 
 /* Quick-look popup opened from the calendar ------------------------------- */
@@ -606,7 +669,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   overflow: hidden;
   animation: dialogin .18s var(--ease);
 }
-.preview::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(4px); }
+.preview::backdrop { background: rgba(0,0,0,.72); backdrop-filter: blur(4px); }
 .preview-body { max-height: 88vh; overflow-y: auto; padding: 20px 22px 18px; }
 
 .preview-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
@@ -634,7 +697,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 
 .preview-novideo {
   margin-top: 18px; padding: 22px; text-align: center;
-  border: 1px dashed var(--border); border-radius: var(--radius);
+  border: 1px dashed var(--border-strong); border-radius: var(--radius);
   color: var(--text-faint); font-size: 13px;
 }
 
@@ -646,55 +709,55 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 }
 
 /* --- 4d. Detail ---------------------------------------------------------- */
-.detail { max-width: 1180px; margin: 0 auto; }
-.detail-top { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.detail { max-width: 1160px; margin: 0 auto; }
+.detail-top { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 
 .detail-title {
   width: 100%; padding: 6px 10px; margin: 4px 0 24px -10px;
   background: transparent; border: 1px solid transparent; border-radius: var(--radius);
   color: var(--text); font-family: inherit;
-  font-size: 34px; font-weight: 750; letter-spacing: -.03em; line-height: 1.2;
+  font-size: 34px; font-weight: 780; letter-spacing: -.035em; line-height: 1.2;
   transition: background .14s var(--ease), border-color .14s var(--ease);
 }
 .detail-title::placeholder { color: var(--text-faint); }
 .detail-title:hover { background: var(--surface); }
 .detail-title:focus {
   outline: none; background: var(--surface);
-  border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-glow);
+  border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 /* Two columns: writing on the left, metadata parked on the right. A single
    narrow column left half the screen empty. */
 .detail-body {
-  display: grid; grid-template-columns: minmax(0,1fr) 300px;
-  gap: 30px; align-items: start;
+  display: grid; grid-template-columns: minmax(0,1fr) 296px;
+  gap: 28px; align-items: start;
 }
 .detail-main { min-width: 0; }
 .detail-side { position: sticky; top: calc(var(--topbar-h) + 20px); }
 
 .side-panel {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 16px;
+  border-radius: var(--radius-lg); padding: 18px;
 }
-.field-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+.field-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
 .field-row { display: grid; gap: 6px; }
 .field-label {
-  color: var(--text-faint); font-size: 10.5px; font-weight: 650;
-  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-faint); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .09em;
 }
 /* Inside the panel the inputs sit flush left, so drop the cell padding. */
 .side-panel .cell-input, .side-panel .cell-date { padding-left: 0; }
 .side-panel .cell-input:hover, .side-panel .cell-date:hover { padding-left: 8px; }
 
 .section-title {
-  font-size: 11px; font-weight: 650; color: var(--text-faint);
-  text-transform: uppercase; letter-spacing: .08em;
+  font-size: 11px; font-weight: 700; color: var(--text-faint);
+  text-transform: uppercase; letter-spacing: .09em;
   margin: 0 0 10px;
 }
-.detail-main > .section-title:not(:first-child) { margin-top: 28px; }
+.detail-main > .section-title:not(:first-child) { margin-top: 26px; }
 
 .script-area, .notes-area {
-  width: 100%; padding: 15px 17px;
+  width: 100%; padding: 16px 18px;
   background: var(--surface);
   border: 1px solid var(--border); border-radius: var(--radius-lg);
   color: var(--text); font-family: inherit; font-size: 14.5px; line-height: 1.75;
@@ -702,10 +765,10 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   transition: border-color .14s var(--ease), box-shadow .14s var(--ease);
 }
 .script-area { min-height: 380px; }
-.notes-area  { min-height: 92px; font-size: 13.5px; }
+.notes-area  { min-height: 96px; font-size: 13.5px; }
 .script-area::placeholder, .notes-area::placeholder { color: var(--text-faint); }
 .script-area:focus, .notes-area:focus {
-  outline: none; border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-glow);
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 /* Media ------------------------------------------------------------------- */
@@ -736,7 +799,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .progress { height: 5px; background: var(--surface-hover); border-radius: 3px; overflow: hidden; }
 .progress-bar {
   height: 100%; width: 0%; border-radius: 3px;
-  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  background: var(--accent);
   transition: width .15s linear;
 }
 .progress-bar.done  { background: var(--success); }
@@ -746,21 +809,21 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .dropzone {
   margin-top: 12px;
   border: 1.5px dashed var(--border-strong); border-radius: var(--radius-lg);
-  padding: 22px; text-align: center; color: var(--text-faint);
+  padding: 26px; text-align: center; color: var(--text-faint);
   font-size: 13px; cursor: pointer;
   transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
 }
 .dropzone:hover, .dropzone.over {
-  border-color: var(--accent-dim); color: var(--accent-hover); background: var(--accent-faint);
+  border-color: var(--accent); color: var(--accent-hover); background: var(--accent-faint);
 }
 
 /* --- 4e. Weekly ---------------------------------------------------------- */
 .week-table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 13px; min-width: 940px; }
 .week-table th {
-  padding: 10px 12px; text-align: left; background: var(--bg-elevated);
+  padding: 11px 12px; text-align: left; background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
-  color: var(--text-faint); font-weight: 650; font-size: 11px;
-  text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+  color: var(--text-faint); font-weight: 650; font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: .08em; white-space: nowrap;
 }
 .week-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); }
 .week-table tr:last-child td { border-bottom: none; }
@@ -770,10 +833,10 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .week-table tbody td:first-child { box-shadow: inset 3px 0 0 transparent; }
 .week-table tr.is-today td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .day-cell {
-  font-weight: 600; white-space: nowrap; vertical-align: top;
+  font-weight: 650; white-space: nowrap; vertical-align: top;
   padding-left: 14px !important; padding-top: 9px !important;
 }
-.day-date { color: var(--text-faint); font-size: 11px; margin-left: 6px; font-family: var(--mono); }
+.day-date { color: var(--text-faint); font-size: 11px; margin-left: 7px; font-family: var(--mono); font-weight: 400; }
 /* The per-day + appears on hover so seven of them don't shout at once. */
 .day-add { margin-left: 8px; padding: 0 7px; opacity: 0; transition: opacity .13s var(--ease); }
 .week-table tr:hover .day-add { opacity: 1; }
@@ -803,7 +866,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   .detail-side { position: static; }
 }
 @media (max-width: 860px) {
-  .view { padding: 18px 14px 48px; }
+  .view { padding: 18px 14px 64px; }
   .brand-name { display: none; }
   #search { width: 150px; }
   #search:focus { width: 190px; }
@@ -813,23 +876,23 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 }
 
 /* --- Money view ----------------------------------------------------------- */
-.signed-pos { color: var(--success); }
-.signed-neg { color: var(--danger); }
+.signed-pos { color: var(--green-400); }
+.signed-neg { color: var(--red-400); }
 
 .goal-card { margin-bottom: 18px; }
-.goal-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
-.goal-net { font-size: 22px; font-weight: 750; letter-spacing: -.02em; margin-left: 4px; }
+.goal-head { display: flex; align-items: baseline; gap: 9px; margin-bottom: 12px; flex-wrap: wrap; }
+.goal-net { font-size: 24px; font-weight: 780; letter-spacing: -.03em; margin-left: 4px; }
 .goal-of { color: var(--text-faint); font-size: 13px; }
 .goal-input {
   width: 90px; padding: 2px 6px;
   background: transparent; border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  color: var(--text); font: inherit; font-size: 14px; font-weight: 650;
+  color: var(--text); font: inherit; font-size: 14px; font-weight: 700;
 }
 .goal-input:hover  { border-color: var(--border); }
 .goal-input:focus  { outline: none; border-color: var(--accent); background: var(--surface-2); }
-.goal-pct { margin-left: auto; color: var(--text-muted); font-size: 13px; font-weight: 650; }
-.goal-track { height: 10px; background: var(--surface-2); border-radius: 5px; }
+.goal-pct { margin-left: auto; color: var(--text-muted); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.goal-track { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
 .goal-fill {
   height: 100%; min-width: 0;
   background: var(--accent); border-radius: 5px 0 0 5px;
@@ -839,7 +902,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .money-stats { grid-template-columns: repeat(4, 1fr); }
 .money-amount { min-width: 110px; }
 .money-signed {
-  font-variant-numeric: tabular-nums; font-weight: 600;
+  font-variant-numeric: tabular-nums; font-weight: 650;
   text-align: right; padding-right: 14px; white-space: nowrap;
 }
 .money-sum-row td {
@@ -852,25 +915,76 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 /* --- Deadlines view ------------------------------------------------------ */
 .due-badge {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 9px; border-radius: 6px;
-  font-size: 12px; font-weight: 600; white-space: nowrap;
+  padding: 3px 9px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 650; white-space: nowrap;
 }
 .due-badge::before {
   content: ''; width: 5px; height: 5px; border-radius: 50%;
   background: currentColor; flex: none;
 }
-.due-over  { background: #3a1e1e; color: #ff8f85; }   /* past due  */
-.due-today { background: #3d2a19; color: #f7ab72; }   /* due today */
-.due-soon  { background: #3a3218; color: #f2d17c; }   /* within 3 days */
-.due-ok    { background: #16301f; color: #6cd39a; }   /* comfortable */
+/* Same deep-fill / light-ink rule as the chips. */
+.due-over  { background: color-mix(in oklab, var(--red-900) 52%, transparent);   color: var(--red-200); }
+.due-today { background: color-mix(in oklab, var(--amber-900) 42%, transparent); color: var(--amber-200); }
+.due-soon  { background: color-mix(in oklab, var(--amber-900) 26%, transparent); color: var(--amber-200); }
+.due-ok    { background: color-mix(in oklab, var(--green-900) 58%, transparent); color: var(--green-200); }
 .due-none  { background: transparent; color: var(--text-faint); font-weight: 400; }
 .due-none::before { display: none; }
+
+/* Card rows, not a table: each assignment is its own raised surface with an
+   urgency-coloured edge, so the list is scannable by colour before reading. */
+.deadline-list { display: flex; flex-direction: column; gap: 10px; }
+.deadline-card {
+  display: grid;
+  grid-template-columns: 6px minmax(220px, 1fr) 150px 132px 128px 122px 92px;
+  align-items: center; gap: 14px;
+  padding: 12px 16px 12px 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: border-color .13s var(--ease), background .13s var(--ease);
+}
+.deadline-card:hover { border-color: var(--border-strong); background: var(--surface-2); }
+
+/* The edge is the loud form of the same signal the due badge carries, so it
+   uses the ramps' 400 steps rather than the badge's softened fill. */
+.deadline-edge { width: 6px; height: 46px; border-radius: 12px 0 0 12px; }
+.deadline-edge.due-over  { background: var(--red-400); }
+.deadline-edge.due-today { background: var(--amber-400); }
+.deadline-edge.due-soon  { background: var(--amber-200); }
+.deadline-edge.due-ok    { background: var(--green-400); }
+.deadline-edge.due-none  { background: var(--border-strong); }
+.deadline-edge.due-done  { background: var(--accent); }
+
+.deadline-main { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.deadline-main .topic-link {
+  padding: 0; font-size: 14.5px; font-weight: 550;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;
+}
+/* The deadline date reads as a caption under the topic but stays editable.
+   width:auto keeps the native picker icon beside the text instead of parked
+   at the far edge of the (wide) topic column. */
+.deadline-main .cell-date {
+  width: auto; max-width: 140px; padding: 0 2px; font-size: 11.5px;
+}
+.deadline-main .cell-date:hover { padding: 0 2px; }
+.deadline-who .cell-input { font-size: 12.5px; color: var(--text-muted); }
+
+@media (max-width: 1180px) {
+  .deadline-card {
+    grid-template-columns: 6px minmax(180px, 1fr) 128px 118px 112px 92px;
+  }
+  .deadline-who { display: none; }
+}
+@media (max-width: 820px) {
+  .deadline-card { grid-template-columns: 6px 1fr auto; row-gap: 10px; padding-bottom: 14px; }
+  .deadline-card > *:nth-child(n+4) { grid-column: 2 / -1; }
+}
 
 /* Completed rows read as struck-through and recede. */
 .row-done { opacity: .55; }
 .row-done .topic-link { text-decoration: line-through; }
 
-/* The Done button is the point of this view, so unlike .row-actions in the
-   table it must always be visible, not revealed on hover. */
+/* The Done and ⬆ Final buttons are the point of this view, so unlike
+   .row-actions in the table they must always be visible, not revealed on
+   hover. */
 .deadline-actions { text-align: right; white-space: nowrap; padding-right: 12px !important; }
 .deadline-actions .btn { opacity: 1; }

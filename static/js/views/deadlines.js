@@ -119,7 +119,7 @@ export async function renderDeadlines(root, state) {
         return `${items.length} assigned` +
                (people.size ? ` across ${people.size} ${people.size === 1 ? 'person' : 'people'}` : '');
       })()),
-    overdue ? el('span', { class: 'chip chip-red' }, `${overdue} overdue`) : null,
+    overdue ? el('span', { class: 'chip chip-bad' }, `${overdue} overdue`) : null,
     el('span', { class: 'spacer' }),
     el('button', {
       class: `btn btn-sm${showCompleted ? ' btn-primary' : ''}`,
@@ -141,7 +141,7 @@ export async function renderDeadlines(root, state) {
     return;
   }
 
-  const body = el('tbody');
+  const list = el('div', { class: 'deadline-list' });
   for (const item of items) {
     const save = patch => api.updateContent(item.id, patch);
     const due = dueLabel(item.deadline);
@@ -159,30 +159,29 @@ export async function renderDeadlines(root, state) {
       },
     }, item.done ? '↩ Undo' : '✓ Done');
 
-    body.append(el('tr', { class: item.done ? 'row-done' : '' },
-      el('td', { class: 'col-topic' },
+    // One card per assignment rather than a table row: the edge bar carries
+    // the urgency, so the list can be scanned by colour alone before any
+    // text is read.
+    list.append(el('div', { class: `deadline-card${item.done ? ' row-done' : ''}` },
+      el('span', { class: `deadline-edge ${item.done ? 'due-done' : due.cls}` }),
+      el('div', { class: 'deadline-main' },
         el('div', {
           class: 'topic-link',
           onclick: () => { location.hash = `#/content/${item.id}`; },
-        }, item.topic)),
-      el('td', {}, textCell(item.assigned_to, v => save({ assigned_to: v }),
-                            { placeholder: 'Unassigned' })),
-      el('td', {}, textCell(item.deadline, v => save({ deadline: v }),
-                            { type: 'date' })),
-      el('td', {},
+        }, item.topic),
+        textCell(item.deadline, v => save({ deadline: v }), { type: 'date' })),
+      el('div', { class: 'deadline-who' },
+        textCell(item.assigned_to, v => save({ assigned_to: v }),
+                 { placeholder: 'Unassigned' })),
+      el('div', {},
         el('span', { class: `due-badge ${due.cls}` },
            item.done ? 'Completed' : due.text)),
-      el('td', {}, selectCell(item.status, STATUSES,
-                              v => save({ status: v }), { allowEmpty: false })),
-      el('td', { class: 'deadline-actions' }, finalUploadCell(item)),
-      el('td', { class: 'deadline-actions' }, doneBtn),
+      el('div', {}, selectCell(item.status, STATUSES,
+                               v => save({ status: v }), { allowEmpty: false })),
+      el('div', { class: 'deadline-actions' }, finalUploadCell(item)),
+      el('div', { class: 'deadline-actions' }, doneBtn),
     ));
   }
 
-  root.append(el('div', { class: 'table-wrap' },
-    el('table', { class: 'grid' },
-      el('thead', {}, el('tr', {},
-        ['Topic', 'Assigned to', 'Deadline', 'Due', 'Status', 'Final video', '']
-          .map(h => el('th', { style: 'cursor:default' }, h)))),
-      body)));
+  root.append(list);
 }

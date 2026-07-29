@@ -70,7 +70,7 @@ export async function renderWeekly(root) {
     el('h1', { class: 'view-title' }, 'Weekly'),
     el('span', { class: 'view-sub' }, weekRangeLabel()),
     weekOffset === 0
-      ? el('span', { class: 'chip chip-green' }, 'This week')
+      ? el('span', { class: 'chip chip-t3' }, 'This week')
       : el('span', { class: 'chip' },
           weekOffset < 0 ? `${-weekOffset}w ago` : `in ${weekOffset}w`),
     el('span', { class: 'view-sub' },

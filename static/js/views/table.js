@@ -103,6 +103,10 @@ export async function renderTable(root, state) {
           class: 'topic-link',
           onclick: () => { location.hash = `#/content/${item.id}`; },
         },
+          // A standing status edge: colour tells you where the entry is in
+          // the pipeline before you read a word of the row.
+          el('span', { class: `topic-edge edge-${STATUSES
+            .find(s => s.value === item.status)?.color ?? 'n'}` }),
           el('span', {}, item.topic),
           (item.raw_count + item.final_count)
             ? el('span', { class: 'attach-badge' },

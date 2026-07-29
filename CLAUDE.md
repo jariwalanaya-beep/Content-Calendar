@@ -45,8 +45,13 @@ A select vocabulary lives in **three places that must stay in sync**:
    validates requests AND responses.
 2. List in [ui.js](static/js/ui.js) (`STATUSES`, `PERFORMANCES`, `TYPES`) —
    dropdown order + chip colour name.
-3. `.chip-<colour>` rules in [style.css](static/css/style.css) (two blocks:
+3. `.chip-<tone>` rules in [style.css](static/css/style.css) (two blocks:
    `.chip-*` and `.cell-select.chip-*`).
+
+The `color` field is a **tone name, not a hue**: `n` (neutral), `t1` (blue),
+`t2` (soft green), `t3` (strong green), `warn` (amber), `bad` (red). Six
+tones total — adding a vocabulary value means picking one of them, not
+inventing a colour.
 
 Current `ContentType`: Story, Celebrity, Theory, Decode, Fact, Lesson,
 Hypothetical, Debate, Pitch. `Performance`: Viral / Average / Failed.
@@ -56,9 +61,23 @@ Hypothetical, Debate, Pitch. `Performance`: Viral / Average / Failed.
 endpoints crash on old rows (response validation), so migrate or NULL the
 old values in `content` when changing a vocabulary.
 
+## Colour system ([style.css](static/css/style.css) section 1)
+
+Every hue is a four-step ramp — 50 / 200 / 400 / 900. On this dark theme the
+roles invert from light-theme habit: **the 900 step is the fill and the 200
+step is the ink on it**. That one rule generates every chip, due badge and
+tag. Blue = interactive accent (also single-series chart marks), green =
+good, amber = attention, red = failed.
+
+The 400 steps are the only place three hues sit side by side (the
+performance stack, the status edge bars), so they must stay
+distinguishable — don't retune them casually.
+
 ## Deadlines view ([deadlines.js](static/js/views/deadlines.js))
 
-The editor-delivery workflow: each row has a **⬆ Final** button that uploads
+Card rows (`.deadline-card`), **not a table** — a grid per assignment with a
+6px urgency-coloured edge bar, topic + editable date stacked, then assignee,
+due badge, status, actions. Each row has a **⬆ Final** button that uploads
 the finished cut straight to that entry's `final` media bucket (via
 `api.uploadMedia`, progress shown on the button), then **✓ Done** clears the
 row. The button label carries the existing final-video count

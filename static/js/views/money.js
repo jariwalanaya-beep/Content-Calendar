@@ -20,8 +20,8 @@ const DIRECTIONS = [
 // Editor fees are booked Unpaid when a video is marked Done; flip them to
 // Paid once the payout actually happens. '—' means not applicable.
 const PAID_STATES = [
-  { value: 'Paid',   color: 'green'  },
-  { value: 'Unpaid', color: 'orange' },
+  { value: 'Paid',   color: 't3'   },
+  { value: 'Unpaid', color: 'warn' },
 ];
 
 /** '₹63,000' / '−₹1,999' with Indian digit grouping. */

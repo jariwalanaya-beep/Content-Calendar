@@ -39,7 +39,7 @@ export const TYPES = [
 ];
 
 const colorOf = (list, value) =>
-  list.find(o => o.value === value)?.color ?? 'grey';
+  list.find(o => o.value === value)?.color ?? 'n';
 
 /* --- DOM ----------------------------------------------------------------- */
 
