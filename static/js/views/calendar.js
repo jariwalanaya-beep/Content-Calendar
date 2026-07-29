@@ -77,7 +77,7 @@ export async function renderCalendar(root, state) {
     }, el('div', { class: 'cal-daynum' }, day));
 
     for (const item of dayItems.slice(0, MAX_PER_DAY)) {
-      const color = STATUSES.find(s => s.value === item.status)?.color ?? 'grey';
+      const color = STATUSES.find(s => s.value === item.status)?.color ?? 'n';
       // Opens a popup rather than navigating, so you keep your place in the
       // month while inspecting the entry's videos and fields.
       cell.append(el('div', {

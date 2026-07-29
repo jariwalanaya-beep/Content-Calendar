@@ -44,7 +44,7 @@ export async function renderMonth(root, state) {
 
   root.append(el('div', { class: 'view-header' },
     el('h1', { class: 'view-title' }, formatMonth(state.month)),
-    isCurrent ? el('span', { class: 'chip chip-blue' }, 'Current month') : null,
+    isCurrent ? el('span', { class: 'chip chip-t1' }, 'Current month') : null,
     el('span', { class: 'spacer' }),
     el('button', { class: 'btn btn-sm', onclick: nav(-1) }, '‹'),
     picker,
