@@ -39,7 +39,9 @@ export const state = {
   // Table view column filters. Empty string means "no filter" for each; they
   // are independent of `month` above, which the calendar/month views own.
   filters: {
-    status: '', type: '', performance: '', month: '', has_media: false,
+    // `media` is '' | 'raw' | 'final' | 'none' — which video bucket an entry
+    // must have. The detail view writes to it to jump into a filtered library.
+    status: '', type: '', performance: '', month: '', media: '',
   },
 };
 

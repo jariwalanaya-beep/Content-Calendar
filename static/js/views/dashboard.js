@@ -199,9 +199,14 @@ function lineCard(title, counts, { wide = false, smooth = false, area = false,
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const base = padT + plotH;
   const nums = entries.map(([, n]) => n);
-  const max = Math.max(...nums, 1);
-  const min = Math.min(0, ...nums);
-  const yFor = v => base - ((v - min) / (max - min)) * plotH;
+  const dataMax = Math.max(...nums, 1);
+  const dataMin = Math.min(0, ...nums);
+  // Pad the domain top and bottom. Without it a series resting at its minimum
+  // (a flat run at zero) is drawn exactly on the baseline, where it collides
+  // with the x-axis labels and reads as a broken chart.
+  const padY = (dataMax - dataMin) * 0.14;
+  const scaleMax = dataMax + padY, scaleMin = dataMin - padY;
+  const yFor = v => base - ((v - scaleMin) / (scaleMax - scaleMin)) * plotH;
   const step = entries.length > 1 ? plotW / (entries.length - 1) : 0;
   const pts = entries.map(([label, n], i) => ({
     x: entries.length > 1 ? padL + i * step : padL + plotW / 2,
@@ -213,13 +218,15 @@ function lineCard(title, counts, { wide = false, smooth = false, area = false,
     role: 'img', 'aria-label': title,
   });
 
-  const ticks = min < 0 ? [min, 0, max]
-    : max >= 4 ? [0, Math.round(max / 2), max] : [0, max];
+  // Ticks stay on the real data range — the padding above is scale-only and
+  // must not invent axis values like "1.4".
+  const ticks = dataMin < 0 ? [dataMin, 0, dataMax]
+    : dataMax >= 4 ? [0, Math.round(dataMax / 2), dataMax] : [0, dataMax];
   for (const t of [...new Set(ticks)]) {
     const y = yFor(t);
     chart.append(
       svg('line', { x1: padL, x2: W - padR, y1: y, y2: y,
-                    class: t === 0 && min < 0 ? 'gridline zeroline' : 'gridline' }),
+                    class: t === 0 && dataMin < 0 ? 'gridline zeroline' : 'gridline' }),
       svg('text', { x: padL - 6, y: y + 3, 'text-anchor': 'end',
                     class: 'axis-label' }, t));
   }
@@ -242,7 +249,7 @@ function lineCard(title, counts, { wide = false, smooth = false, area = false,
   pts.forEach((p, i) => {
     chart.append(svg('circle', { cx: p.x, cy: p.y, r: dotR, class: 'line-dot' },
       svg('title', {}, `${p.label}: ${p.n}`)));
-    if (labelAll || p.n === max || i === pts.length - 1) {
+    if (labelAll || p.n === dataMax || i === pts.length - 1) {
       // The first point sits on the y-axis; anchor its label rightward so it
       // cannot collide with the tick numbers.
       chart.append(svg('text', {
@@ -462,7 +469,12 @@ function momentum(items) {
       const db = b.upload_date || b.created_at.slice(0, 10);
       return da < db ? -1 : da > db ? 1 : a.id - b.id;
     });
-  const out = {};
+  if (!rated.length) return {};
+  // Anchor the series at zero. Without this the line STARTS at the first
+  // video's score, so a viral opener renders as a high flat point and its
+  // climb is invisible — the chart then reads as a decline no matter what
+  // actually happened.
+  const out = { Start: 0 };
   let score = 0;
   rated.forEach((v, i) => {
     score += v.performance === 'Viral' ? 1 : v.performance === 'Failed' ? -1 : 0;

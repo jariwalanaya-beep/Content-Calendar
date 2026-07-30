@@ -90,6 +90,11 @@ def list_content(
     done: bool | None = Query(None, description="Filter by the done flag"),
     has_deadline: bool = Query(False, description="Only entries that have a deadline"),
     has_media: bool = Query(False, description="Only entries with at least one video"),
+    media: str | None = Query(
+        None, pattern="^(raw|final|none)$",
+        description="Filter by which media bucket is populated: "
+                    "'raw' / 'final' = has at least one of that kind, "
+                    "'none' = has no video at all"),
     assigned: bool = Query(False, description="Only entries with someone in Assigned to"),
     sort: str = Query("updated_at", description=f"One of: {', '.join(sorted(SORTABLE))}"),
     direction: str = Query("desc", pattern="^(?i)(asc|desc)$"),
@@ -151,8 +156,17 @@ def list_content(
 
     # Media presence is a property of the aggregated counts, so it filters with
     # HAVING rather than WHERE, which cannot see the SUM() columns.
-    if has_media:
-        sql += " HAVING (raw_count + final_count) > 0"
+    # `media` is the finer-grained form of `has_media`; when both arrive the
+    # specific one wins, since a caller asking for 'raw' already implied media.
+    having = {
+        "raw":   "raw_count > 0",
+        "final": "final_count > 0",
+        "none":  "(raw_count + final_count) = 0",
+    }.get(media or "")
+    if not having and has_media:
+        having = "(raw_count + final_count) > 0"
+    if having:
+        sql += f" HAVING {having}"
 
     sort_col = sort if sort in SORTABLE else "updated_at"
     sort_dir = "ASC" if direction.lower() == "asc" else "DESC"
