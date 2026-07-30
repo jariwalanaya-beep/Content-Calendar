@@ -32,7 +32,7 @@ export async function renderTable(root, state) {
     api.listContent({
       search: state.search, sort: state.sort, direction: state.direction,
       status: f.status, type: f.type, performance: f.performance,
-      month: f.month, has_media: f.has_media || undefined,
+      month: f.month, media: f.media || undefined,
     }),
     api.listMonths(),
   ]);
@@ -40,13 +40,19 @@ export async function renderTable(root, state) {
 
   const activeCount =
     (f.status ? 1 : 0) + (f.type ? 1 : 0) + (f.performance ? 1 : 0) +
-    (f.month ? 1 : 0) + (f.has_media ? 1 : 0);
+    (f.month ? 1 : 0) + (f.media ? 1 : 0);
   const narrowed = activeCount > 0 || !!state.search;
+
+  // Footage tally for whatever is on screen: the answer to "how much raw have
+  // I got sitting there?" without opening a single entry.
+  const rawTotal   = items.reduce((n, i) => n + i.raw_count, 0);
+  const finalTotal = items.reduce((n, i) => n + i.final_count, 0);
 
   root.append(el('div', { class: 'view-header' },
     el('h1', { class: 'view-title' }, 'Content Library'),
     el('span', { class: 'view-sub' },
       `${items.length} ${items.length === 1 ? 'entry' : 'entries'}` +
+      (rawTotal || finalTotal ? ` · ${rawTotal} raw · ${finalTotal} final` : '') +
       (state.search ? ` matching “${state.search}”` : '') +
       (activeCount ? ` · ${activeCount} filter${activeCount === 1 ? '' : 's'}` : '')),
   ));
@@ -174,16 +180,17 @@ function filterBar(state, months) {
   // Enum vocabularies use the same string for value and label.
   const opt = arr => arr.map(x => ({ value: x.value, label: x.value }));
 
-  // Media presence maps a two-state select onto the has_media boolean.
+  // Which bucket an entry must have. 'raw' vs 'final' is the useful split:
+  // raw = footage waiting to be cut, final = a delivered edit.
   const media = el('select', { class: 'filter-select' },
-    el('option', { value: '' }, 'Any'),
-    el('option', { value: 'yes' }, 'Has video'));
-  media.value = f.has_media ? 'yes' : '';
-  media.addEventListener('change', () => {
-    f.has_media = media.value === 'yes'; rerender();
-  });
+    el('option', { value: '' },      'Any'),
+    el('option', { value: 'raw' },   'Has raw'),
+    el('option', { value: 'final' }, 'Has final'),
+    el('option', { value: 'none' },  'No video'));
+  media.value = f.media || '';
+  media.addEventListener('change', () => { f.media = media.value; rerender(); });
 
-  const active = f.status || f.type || f.performance || f.month || f.has_media;
+  const active = f.status || f.type || f.performance || f.month || f.media;
 
   return el('div', { class: 'filter-bar' },
     select('Status', 'status', 'All statuses', opt(STATUSES)),
@@ -197,7 +204,7 @@ function filterBar(state, months) {
       class: 'btn btn-ghost btn-sm filter-clear',
       onclick: () => {
         f.status = ''; f.type = ''; f.performance = '';
-        f.month = ''; f.has_media = false;
+        f.month = ''; f.media = '';
         rerender();
       },
     }, '✕ Clear') : null,

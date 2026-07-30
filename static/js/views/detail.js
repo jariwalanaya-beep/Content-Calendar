@@ -40,19 +40,90 @@ export async function discardIfEmpty(id) {
   } catch { /* already gone — nothing to clean up */ }
 }
 
+/**
+ * The entries either side of `id`, in the order the library is currently
+ * showing them — same search, sort and filters. Stepping through detail pages
+ * therefore walks exactly the list the user was just looking at: filter to
+ * "Has raw" and ‹ › visits only entries with raw footage.
+ *
+ * If the open entry is not in that filtered list (it was opened from the
+ * calendar, or edited until it no longer matches), fall back to the unfiltered
+ * library so the arrows still work instead of going dead.
+ */
+async function siblings(id) {
+  const { state } = await import('../app.js');
+  const f = state.filters;
+  const query = {
+    search: state.search, sort: state.sort, direction: state.direction,
+    status: f.status, type: f.type, performance: f.performance,
+    month: f.month, media: f.media || undefined,
+  };
+  let list = await api.listContent(query);
+  let idx = list.findIndex(i => i.id === id);
+  if (idx === -1) {
+    list = await api.listContent({ sort: state.sort, direction: state.direction });
+    idx = list.findIndex(i => i.id === id);
+  }
+  return {
+    idx,
+    total: list.length,
+    prev: idx > 0 ? list[idx - 1] : null,
+    next: idx !== -1 && idx < list.length - 1 ? list[idx + 1] : null,
+  };
+}
+
+/** ‹ / › stepper plus an "n of m" position readout. */
+function stepper({ idx, total, prev, next }) {
+  const go = entry => () => { location.hash = `#/content/${entry.id}`; };
+  const arrow = (entry, label, title) => el('button', {
+    class: 'btn btn-sm',
+    disabled: !entry,
+    title: entry ? `${title}: ${entry.topic}` : `No ${title.toLowerCase()}`,
+    onclick: entry ? go(entry) : null,
+  }, label);
+
+  return el('div', { class: 'detail-nav' },
+    arrow(prev, '‹', 'Previous'),
+    el('span', { class: 'detail-pos' },
+       idx === -1 ? '—' : `${idx + 1} of ${total}`),
+    arrow(next, '›', 'Next'));
+}
+
 export async function renderDetail(root, id) {
   const spinner = loading();
   root.append(spinner);
-  let item = await api.getContent(id);
+  // One round trip for both: the entry and its position in the library.
+  const [itemLoaded, sibs] = await Promise.all([api.getContent(id), siblings(id)]);
+  let item = itemLoaded;
   spinner.remove();
 
   const save = patch => api.updateContent(id, patch);
   const page = el('div', { class: 'detail' });
   root.append(page);
 
+  // ← / → step too, but only when the caret is not in a field — otherwise
+  // arrowing through the script text would fling you onto another entry.
+  // Bound on document (a <div> takes no key events) and torn down as soon as
+  // the route leaves this entry, so listeners never pile up.
+  const onKey = e => {
+    const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    const to = e.key === 'ArrowLeft' ? sibs.prev
+             : e.key === 'ArrowRight' ? sibs.next : null;
+    if (to) { e.preventDefault(); location.hash = `#/content/${to.id}`; }
+  };
+  const unbind = () => {
+    if (location.hash === `#/content/${id}`) return;   // still here — keep it
+    document.removeEventListener('keydown', onKey);
+    window.removeEventListener('hashchange', unbind);
+  };
+  document.addEventListener('keydown', onKey);
+  window.addEventListener('hashchange', unbind);
+
   /* --- header --------------------------------------------------------- */
   page.append(el('div', { class: 'detail-top' },
     el('a', { class: 'btn btn-ghost btn-sm', href: '#/library' }, '← Library'),
+    stepper(sibs),
     el('span', { class: 'spacer' }),
     el('span', { class: 'media-meta' }, `Updated ${item.updated_at.slice(0, 16).replace('T', ' ')}`),
     el('button', {
@@ -185,6 +256,17 @@ export async function renderDetail(root, id) {
       el('div', { class: 'media-head' },
         el('div', { class: 'section-title', style: 'margin:0' }, label),
         el('span', { class: 'spacer' }),
+        // Jump to the library pre-filtered to this bucket — the way to go from
+        // "this one video" to "everything I have footage for" in one click.
+        el('button', {
+          class: 'btn btn-sm',
+          title: `Show every library entry that has ${kind} video`,
+          onclick: async () => {
+            const app = await import('../app.js');
+            app.state.filters.media = kind;
+            location.hash = '#/library';
+          },
+        }, kind === 'raw' ? '🎬 All raw' : '🎬 All final'),
         el('button', { class: 'btn btn-sm', onclick: () => fileInput.click() },
            '⬆ Upload'),
       ),
