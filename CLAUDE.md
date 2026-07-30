@@ -83,6 +83,24 @@ the finished cut straight to that entry's `final` media bucket (via
 row. The button label carries the existing final-video count
 (`⬆ Final · 2`). Done only sets `done = 1` — it never deletes anything.
 
+## Library filters & the detail stepper
+
+`state.filters` in [app.js](static/js/app.js) is the single filter object the
+table view owns: `status`, `type`, `performance`, `month`, and **`media`**
+(`''` | `raw` | `final` | `none`). `media` maps to the API's `media` query
+param, which filters on the aggregated counts via `HAVING` (see
+[content.py](routers/content.py)); the older boolean `has_media` still works
+but `media` wins when both are sent.
+
+Two things read that state from outside the table:
+
+- The detail page's **🎬 All raw / All final** buttons set `filters.media`
+  and jump to `#/library`.
+- The detail page's **‹ n of m ›** stepper (`siblings()` in
+  [detail.js](static/js/views/detail.js)) re-runs the same query the library
+  ran, so ← / → walk the *currently filtered* list. If the open entry is not
+  in that list it refetches unfiltered so the arrows never go dead.
+
 ## Frontend routing
 
 Hash router in [app.js](static/js/app.js). Valid routes: `#/library`,
