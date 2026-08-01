@@ -91,10 +91,14 @@ def list_content(
     has_deadline: bool = Query(False, description="Only entries that have a deadline"),
     has_media: bool = Query(False, description="Only entries with at least one video"),
     media: str | None = Query(
-        None, pattern="^(raw|final|none)$",
+        None, pattern="^(raw|final|none|unposted|rawonly)$",
         description="Filter by which media bucket is populated: "
                     "'raw' / 'final' = has at least one of that kind, "
-                    "'none' = has no video at all"),
+                    "'none' = has no video at all, "
+                    "'rawonly' = has raw footage but no final cut yet "
+                    "(footage banked, still editable material), "
+                    "'unposted' = has a final cut but is not Posted yet "
+                    "(the edit is ready but the channel upload has not happened)"),
     assigned: bool = Query(False, description="Only entries with someone in Assigned to"),
     sort: str = Query("updated_at", description=f"One of: {', '.join(sorted(SORTABLE))}"),
     direction: str = Query("desc", pattern="^(?i)(asc|desc)$"),
@@ -144,6 +148,12 @@ def list_content(
     if has_deadline:
         where.append("c.deadline IS NOT NULL AND c.deadline <> ''")
 
+    # "Cut but not published": the status half is a plain column test, so it
+    # belongs in WHERE; the "has a final video" half needs the aggregate and
+    # is applied as HAVING below.
+    if media == "unposted":
+        where.append("c.status <> 'Posted'")
+
     # The Deadlines view is an assignment tracker, so unassigned entries are
     # noise there. TRIM guards against a name that is only whitespace.
     if assigned:
@@ -159,9 +169,11 @@ def list_content(
     # `media` is the finer-grained form of `has_media`; when both arrive the
     # specific one wins, since a caller asking for 'raw' already implied media.
     having = {
-        "raw":   "raw_count > 0",
-        "final": "final_count > 0",
-        "none":  "(raw_count + final_count) = 0",
+        "raw":      "raw_count > 0",
+        "final":    "final_count > 0",
+        "none":     "(raw_count + final_count) = 0",
+        "unposted": "final_count > 0",   # paired with the status WHERE above
+        "rawonly":  "raw_count > 0 AND final_count = 0",
     }.get(media or "")
     if not having and has_media:
         having = "(raw_count + final_count) > 0"

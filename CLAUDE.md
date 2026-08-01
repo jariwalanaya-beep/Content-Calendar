@@ -87,12 +87,19 @@ row. The button label carries the existing final-video count
 
 `state.filters` in [app.js](static/js/app.js) is the single filter object the
 table view owns: `status`, `type`, `performance`, `month`, and **`media`**
-(`''` | `raw` | `final` | `none`). `media` maps to the API's `media` query
-param, which filters on the aggregated counts via `HAVING` (see
+(`''` | `raw` | `final` | `none` | `unposted`). `media` maps to the API's
+`media` query param, which filters on the aggregated counts via `HAVING` (see
 [content.py](routers/content.py)); the older boolean `has_media` still works
 but `media` wins when both are sent.
 
-Two things read that state from outside the table:
+**`unposted` = has a final cut but `status <> 'Posted'`** — the edit is
+finished but it never went up on the channel. It is the only `media` value
+that needs both halves: a WHERE on status *and* a HAVING on `final_count`.
+
+Three things read that state from outside the table:
+
+- The dashboard's **⬆ To upload** stat tile (`statTile(…, 'unposted')`) is
+  clickable and drills into that filter.
 
 - The detail page's **🎬 All raw / All final** buttons set `filters.media`
   and jump to `#/library`.

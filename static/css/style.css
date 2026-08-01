@@ -493,12 +493,17 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   transition: border-color .15s var(--ease), transform .15s var(--ease);
 }
 .stat-tile:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+/* A tile that drills into the library says so on hover. */
+.stat-link { cursor: pointer; }
+.stat-link:hover { border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-glow); }
 /* Proportional figures: equal-width digits look loose at display sizes. */
 .stat-value {
   font-size: 31px; font-weight: 780; letter-spacing: -.035em;
   line-height: 1.05;
 }
 .stat-danger { color: var(--danger); }
+/* Work that is finished and waiting on you — attention, not alarm. */
+.stat-ready { color: var(--amber-400); }
 .stat-label {
   margin-top: 5px;
   color: var(--text-faint); font-size: 10px; font-weight: 700;

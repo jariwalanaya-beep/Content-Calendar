@@ -186,6 +186,10 @@ function filterBar(state, months) {
     el('option', { value: '' },      'Any'),
     el('option', { value: 'raw' },   'Has raw'),
     el('option', { value: 'final' }, 'Has final'),
+    // Footage banked: shot, still uncut — the material you can edit next.
+    el('option', { value: 'rawonly' },  '🎞 Raw, not cut yet'),
+    // The one that answers "what have I cut but not put on the channel?"
+    el('option', { value: 'unposted' }, '⬆ Not posted yet'),
     el('option', { value: 'none' },  'No video'));
   media.value = f.media || '';
   media.addEventListener('change', () => { f.media = media.value; rerender(); });

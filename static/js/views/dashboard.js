@@ -43,9 +43,24 @@ function countBy(items, keyFn, keys) {
   return counts;
 }
 
-/** One headline number. `tone` colours the value (e.g. 'danger' for overdue). */
-function statTile(label, value, tone) {
-  return el('div', { class: 'stat-tile' },
+/**
+ * One headline number. `tone` colours the value (e.g. 'danger' for overdue).
+ * `mediaFilter` makes the tile a shortcut: clicking it opens the library
+ * narrowed to that media filter, so a number you care about is one click from
+ * the list behind it.
+ */
+function statTile(label, value, tone, mediaFilter) {
+  return el('div', {
+    class: `stat-tile${mediaFilter ? ' stat-link' : ''}`,
+    title: mediaFilter ? 'Show these in the library' : null,
+    onclick: mediaFilter
+      ? async () => {
+          const app = await import('../app.js');
+          app.state.filters.media = mediaFilter;
+          location.hash = '#/library';
+        }
+      : null,
+  },
     el('div', { class: `stat-value${tone ? ` stat-${tone}` : ''}` }, String(value)),
     el('div', { class: 'stat-label' }, label));
 }
@@ -509,6 +524,10 @@ export async function renderDashboard(root, state) {
   const overdue = items.filter(i =>
     !i.done && i.deadline && i.deadline < today).length;
   const withMedia = items.filter(i => i.raw_count + i.final_count > 0).length;
+  // Cut, but never put on the channel — the finished work that is sitting
+  // still. Not the same as "not done": the edit exists, the upload doesn't.
+  const toUpload = items.filter(i =>
+    i.final_count > 0 && i.status !== 'Posted').length;
 
   root.append(el('div', { class: 'stat-row' },
     statTile('Videos', items.length),
@@ -516,6 +535,8 @@ export async function renderDashboard(root, state) {
     statTile('Edits done', done),
     statTile(overdue ? '⚠ Overdue' : 'Overdue', overdue,
              overdue ? 'danger' : null),
+    statTile(toUpload ? '⬆ To upload' : 'To upload', toUpload,
+             toUpload ? 'ready' : null, 'unposted'),
     statTile('With files', withMedia)));
 
   const byStatus = countBy(items, i => i.status, STATUSES.map(s => s.value));
