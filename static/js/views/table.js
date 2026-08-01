@@ -5,7 +5,7 @@
 
 import { api } from '../api.js';
 import {
-  el, textCell, selectCell, emptyState, loading, toast, confirmDialog,
+  el, textCell, selectCell, dropdown, emptyState, loading, toast, confirmDialog,
   formatMonth, STATUSES, PERFORMANCES, TYPES,
 } from '../ui.js';
 
@@ -165,45 +165,36 @@ export async function renderTable(root, state) {
 function filterBar(state, months) {
   const f = state.filters;
 
-  // One labelled dropdown. `options` is an array of {value, label}; the empty
-  // value is the "all" entry pinned at the top.
-  const select = (label, key, allLabel, options) => {
-    const sel = el('select', { class: 'filter-select' },
-      el('option', { value: '' }, allLabel),
-      options.map(o => el('option', { value: o.value }, o.label)));
-    sel.value = f[key] || '';
-    sel.addEventListener('change', () => { f[key] = sel.value; rerender(); });
-    return el('label', { class: 'filter-field' },
-      el('span', { class: 'filter-label' }, label), sel);
-  };
+  // One labelled dropdown. `options` is an array of {value, label}; the "all"
+  // entry is pinned at the top with the empty value.
+  const field = (label, key, allLabel, options) =>
+    el('div', { class: 'filter-field' },
+      el('span', { class: 'filter-label' }, label),
+      dropdown([{ value: '', label: allLabel }, ...options], f[key] || '',
+               v => { f[key] = v; rerender(); }, { ariaLabel: label }));
 
   // Enum vocabularies use the same string for value and label.
   const opt = arr => arr.map(x => ({ value: x.value, label: x.value }));
 
-  // Which bucket an entry must have. 'raw' vs 'final' is the useful split:
-  // raw = footage waiting to be cut, final = a delivered edit.
-  const media = el('select', { class: 'filter-select' },
-    el('option', { value: '' },      'Any'),
-    el('option', { value: 'raw' },   'Has raw'),
-    el('option', { value: 'final' }, 'Has final'),
-    // Footage banked: shot, still uncut — the material you can edit next.
-    el('option', { value: 'rawonly' },  '🎞 Raw, not cut yet'),
-    // The one that answers "what have I cut but not put on the channel?"
-    el('option', { value: 'unposted' }, '⬆ Not posted yet'),
-    el('option', { value: 'none' },  'No video'));
-  media.value = f.media || '';
-  media.addEventListener('change', () => { f.media = media.value; rerender(); });
-
   const active = f.status || f.type || f.performance || f.month || f.media;
 
   return el('div', { class: 'filter-bar' },
-    select('Status', 'status', 'All statuses', opt(STATUSES)),
-    select('Type', 'type', 'All types', opt(TYPES)),
-    select('Performance', 'performance', 'All performance', opt(PERFORMANCES)),
-    select('Month', 'month', 'All months',
-           months.map(m => ({ value: m, label: formatMonth(m) }))),
-    el('label', { class: 'filter-field' },
-      el('span', { class: 'filter-label' }, 'Media'), media),
+    field('Status', 'status', 'All statuses', opt(STATUSES)),
+    field('Type', 'type', 'All types', opt(TYPES)),
+    field('Performance', 'performance', 'All performance', opt(PERFORMANCES)),
+    field('Month', 'month', 'All months',
+          months.map(m => ({ value: m, label: formatMonth(m) }))),
+    // Which bucket an entry must have. 'raw' vs 'final' is the useful split:
+    // raw = footage waiting to be cut, final = a delivered edit.
+    field('Media', 'media', 'Any', [
+      { value: 'raw',      label: 'Has raw' },
+      { value: 'final',    label: 'Has final' },
+      // Footage banked: shot, still uncut — the material you can edit next.
+      { value: 'rawonly',  label: '🎞 Raw, not cut yet' },
+      // Answers "what have I cut but not put on the channel?"
+      { value: 'unposted', label: '⬆ Not posted yet' },
+      { value: 'none',     label: 'No video' },
+    ]),
     active ? el('button', {
       class: 'btn btn-ghost btn-sm filter-clear',
       onclick: () => {

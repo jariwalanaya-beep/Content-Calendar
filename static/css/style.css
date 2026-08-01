@@ -257,7 +257,11 @@ a { color: inherit; text-decoration: none; }
 .spacer { margin-left: auto; }
 
 /* Filter bar (table view) ------------------------------------------------- */
+/* z-index matters here: #view's entry animation makes every direct child its
+   own stacking context, so without this the open dropdown panel is painted
+   behind the table that follows it in the DOM. */
 .filter-bar {
+  position: relative; z-index: 20;
   display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
   margin-bottom: 16px;
 }
@@ -266,26 +270,79 @@ a { color: inherit; text-decoration: none; }
   font-size: 10px; font-weight: 650; letter-spacing: .08em;
   text-transform: uppercase; color: var(--text-faint); padding-left: 2px;
 }
-.filter-select {
-  appearance: none; cursor: pointer;
-  min-width: 140px; padding: 7px 30px 7px 11px;
-  background: var(--surface-2); color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  font: inherit; font-size: 13px; font-weight: 500;
-  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
-                    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
-  background-position: calc(100% - 15px) 55%, calc(100% - 11px) 55%;
-  background-size: 4px 4px, 4px 4px;
-  background-repeat: no-repeat;
-  transition: border-color .13s var(--ease), background-color .13s var(--ease);
-}
-.filter-select:hover { background-color: var(--surface-hover); border-color: var(--border-strong); }
-.filter-select:focus {
-  outline: none; border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-}
-.filter-select option { background: var(--surface-2); color: var(--text); }
 .filter-clear { align-self: flex-end; margin-bottom: 1px; }
+
+/* Dropdown ---------------------------------------------------------------
+   A native <select> draws its option list through the OS, which ignores CSS
+   entirely — on this dark theme it opens as a white sheet. So the filter bar
+   uses the dropdown() component from ui.js: a button plus a panel we own.
+   `.dd` is the positioning context for the absolutely-placed panel. */
+.dd { position: relative; }
+
+.dd-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-width: 152px; padding: 8px 11px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer; text-align: left;
+  transition: border-color .13s var(--ease), background .13s var(--ease);
+}
+.dd-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+.dd-btn:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.dd-value { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A filter that is actually narrowing the list wears the accent, so active
+   filters are visible without reading every value. */
+.dd-btn.is-set {
+  border-color: var(--accent-dim); color: var(--accent-hover);
+  background: var(--accent-faint);
+}
+
+/* Chevron drawn from two borders — no glyph, so it never shifts with fonts. */
+.dd-caret {
+  width: 6px; height: 6px; flex: none; margin-right: 2px;
+  border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  opacity: .55; transition: transform .16s var(--ease), opacity .13s var(--ease);
+}
+.dd-btn:hover .dd-caret { opacity: .9; }
+.dd.is-open .dd-caret { transform: translateY(1px) rotate(-135deg); opacity: 1; }
+
+.dd-panel {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+  min-width: 100%; width: max-content; max-width: 280px;
+  max-height: 320px; overflow-y: auto;
+  padding: 5px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  /* Hidden by default without display:none, so the open transition can run. */
+  opacity: 0; visibility: hidden; transform: translateY(-4px);
+  transition: opacity .13s var(--ease), transform .13s var(--ease),
+              visibility 0s linear .13s;
+}
+.dd.is-open .dd-panel {
+  opacity: 1; visibility: visible; transform: none;
+  transition-delay: 0s;
+}
+
+.dd-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 9px; border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--text-muted);
+  cursor: pointer; white-space: nowrap;
+  transition: background .1s var(--ease), color .1s var(--ease);
+}
+.dd-item-label { flex: 1; }
+.dd-item:hover { background: var(--surface-hover); color: var(--text); }
+.dd-item:focus-visible,
+.dd-item:focus { outline: none; background: var(--surface-hover); color: var(--text); }
+.dd-item.is-selected { color: var(--accent-hover); background: var(--accent-faint); }
+
+/* The tick reserves its space always, so labels do not jump on selection. */
+.dd-check { opacity: 0; font-size: 11px; color: var(--accent-hover); }
+.dd-item.is-selected .dd-check { opacity: 1; }
 
 /* Chips ------------------------------------------------------------------- */
 /* Deep fill + light ink, per the ramp rule at the top of this file. The
@@ -577,14 +634,6 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .linechart .area-fill { fill: var(--accent); opacity: .14; }
 .line-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 
-/* Radar — recessive rings and spokes, one translucent data polygon. */
-.radar-card { display: flex; flex-direction: column; align-items: center; }
-.radar-card .chart-title { align-self: flex-start; }
-.radar { width: 100%; max-width: 320px; height: auto; display: block; }
-.radar .axis-label { fill: var(--text-faint); font-size: 10px; font-family: var(--mono); }
-.radar-ring { fill: none; stroke: var(--border); stroke-width: 1; }
-.radar-fill { fill: var(--accent-glow); stroke: var(--accent); stroke-width: 2; }
-
 /* Performance stack — Viral | Average | Failed segments inside the shared
    bar track. These three are the ramps' 400 steps: the only place in the app
    where three hues sit side by side, so they must stay distinguishable.
@@ -595,6 +644,11 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .stack-seg.perf-viral   { background: var(--green-400); }
 .stack-seg.perf-average { background: var(--amber-400); }
 .stack-seg.perf-failed  { background: var(--red-400); }
+
+/* Emphasis pair, not two categories: the banked half is the actionable one
+   so it takes the accent, and the already-cut half recedes to grey. */
+.stack-seg.seg-banked { background: var(--accent); }
+.stack-seg.seg-cut    { background: #46525f; }
 .chart-legend {
   display: flex; gap: 16px; justify-content: center;
   font-size: 12px; color: var(--text-muted); padding: 8px 0 2px;
@@ -604,6 +658,8 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .legend-dot.perf-viral   { background: var(--green-400); }
 .legend-dot.perf-average { background: var(--amber-400); }
 .legend-dot.perf-failed  { background: var(--red-400); }
+.legend-dot.seg-banked   { background: var(--accent); }
+.legend-dot.seg-cut      { background: #46525f; }
 
 /* Half-width pair below the three-card rows. */
 .dash-grid + .dash-grid { margin-top: 12px; }
@@ -611,22 +667,6 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 @media (max-width: 860px) {
   .dash-2 { grid-template-columns: 1fr; }
 }
-
-/* Completion donut — content centers in whatever height its row stretches to */
-.donut-card {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center;
-}
-.donut-card .chart-title { align-self: flex-start; margin-right: auto; }
-.donut { width: 152px; height: 152px; }
-.donut-track { fill: none; stroke: var(--surface-2); stroke-width: 14; }
-.donut-arc {
-  fill: none; stroke: var(--accent); stroke-width: 14;
-  stroke-linecap: round;
-  transition: stroke-dasharray .4s var(--ease);
-}
-.donut-pct { fill: var(--text); font-size: 27px; font-weight: 780; }
-.donut-sub { fill: var(--text-faint); font-size: 10.5px; font-family: var(--mono); }
 
 /* --- 4c. Calendar -------------------------------------------------------- */
 .cal-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
@@ -638,32 +678,67 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   box-shadow: var(--shadow-sm);
 }
 .cal-dow {
-  background: var(--bg-elevated); padding: 10px 8px;
+  background: var(--bg-elevated); padding: 9px 10px;
   font-size: 10px; font-weight: 700; color: var(--text-faint);
-  text-transform: uppercase; letter-spacing: .1em; text-align: center;
+  text-transform: uppercase; letter-spacing: .1em; text-align: left;
 }
 .cal-day {
-  background: var(--surface); min-height: 120px; padding: 8px;
-  display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface); min-height: 116px; padding: 7px 7px 8px;
+  display: flex; flex-direction: column; gap: 3px;
   transition: background .13s var(--ease);
 }
 .cal-day:hover { background: var(--surface-2); }
-.cal-day.other-month { background: var(--bg-elevated); }
-.cal-day.other-month .cal-daynum { color: #39424d; }
-.cal-day.today { background: var(--accent-faint); box-shadow: inset 0 0 0 1px var(--accent-dim); }
-.cal-daynum { font-size: 11px; font-weight: 650; color: var(--text-faint); font-family: var(--mono); }
+
+/* Weekend columns sit one step back so the eye can find week boundaries
+   without counting cells. Sunday-first, so the grid's 1st and 7th columns —
+   the 7 header cells shift the nth-child maths by exactly one week. */
+.cal-grid > *:nth-child(7n + 1),
+.cal-grid > *:nth-child(7n) { background: var(--bg-elevated); }
+.cal-grid > .cal-day:nth-child(7n + 1):hover,
+.cal-grid > .cal-day:nth-child(7n):hover { background: var(--surface-2); }
+
+/* Days from the neighbouring month are context, not content. */
+.cal-day.other-month { background: #0d1014; }
+.cal-day.other-month .cal-daynum { color: #333c47; }
+.cal-day.other-month .cal-event { opacity: .55; }
+
+.cal-day.today {
+  background: var(--accent-faint);
+  box-shadow: inset 0 0 0 1px var(--accent-dim);
+}
+.cal-daynum {
+  align-self: flex-start;
+  font-size: 11.5px; font-weight: 650; color: var(--text-muted);
+  font-family: var(--mono); line-height: 1.6; padding: 0 2px;
+}
 .cal-day.today .cal-daynum {
   color: var(--on-accent); background: var(--accent);
-  width: 21px; height: 21px; border-radius: 50%;
+  min-width: 22px; height: 22px; border-radius: 50%; padding: 0;
   display: grid; place-items: center; font-size: 11px;
+  box-shadow: 0 2px 8px var(--accent-glow);
 }
+
+/* Each event carries its status colour on a left edge — the same signal the
+   library rows and Deadlines cards use, so the month is scannable by state
+   rather than being a wall of identical blocks. currentColor picks up the
+   chip-<tone> class the view already applies. */
 .cal-event {
-  font-size: 11px; padding: 4px 7px; border-radius: 6px;
+  font-size: 11px; padding: 4px 7px; border-radius: 5px;
+  border-left: 3px solid currentColor;
   cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-weight: 550; transition: filter .13s var(--ease);
+  font-weight: 550;
+  transition: filter .13s var(--ease), transform .13s var(--ease);
 }
-.cal-event:hover { filter: brightness(1.25); }
-.cal-more { font-size: 10px; color: var(--text-faint); padding-left: 5px; }
+.cal-event:hover { filter: brightness(1.3); transform: translateX(1px); }
+.cal-more {
+  font-size: 10px; color: var(--text-faint); padding: 2px 4px 0;
+  font-family: var(--mono);
+}
+
+@media (max-width: 860px) {
+  .cal-day { min-height: 84px; padding: 5px; }
+  .cal-event { font-size: 10px; padding: 3px 5px; }
+}
 
 /* Quick-look popup opened from the calendar ------------------------------- */
 .preview {
@@ -983,13 +1058,40 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   padding: 0; font-size: 14.5px; font-weight: 550;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;
 }
-/* The deadline date reads as a caption under the topic but stays editable.
-   width:auto keeps the native picker icon beside the text instead of parked
-   at the far edge of the (wide) topic column. */
-.deadline-main .cell-date {
-  width: auto; max-width: 140px; padding: 0 2px; font-size: 11.5px;
+.deadline-sub {
+  color: var(--text-faint); font-size: 11.5px; font-family: var(--mono);
 }
-.deadline-main .cell-date:hover { padding: 0 2px; }
+
+/* Deadline control — a button the user can actually see, with the real date
+   input rendered behind it (opacity 0, 1px) so showPicker() has something to
+   open. A display:none input cannot be picked. */
+.dl-wrap { position: relative; display: inline-flex; }
+.dl-input {
+  position: absolute; left: 8px; bottom: 0; width: 1px; height: 1px;
+  padding: 0; border: 0; opacity: 0; pointer-events: none;
+}
+.dl-control {
+  font: inherit; cursor: pointer;
+  border: 1px solid transparent; background: transparent;
+  transition: filter .13s var(--ease), border-color .13s var(--ease),
+              background .13s var(--ease), color .13s var(--ease);
+}
+/* With a date set the control *is* the due badge, so it inherits those
+   colours and only needs a hover lift. */
+.dl-control.due-badge:hover { filter: brightness(1.2); }
+/* With no date it is an invitation: dashed outline, accent on hover. */
+.dl-control.is-empty {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-strong);
+  color: var(--text-faint); font-size: 12px; font-weight: 500;
+  white-space: nowrap;
+}
+.dl-control.is-empty:hover {
+  color: var(--accent-hover); border-color: var(--accent-dim);
+  background: var(--accent-faint);
+}
+.dl-control:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
 .deadline-who .cell-input { font-size: 12.5px; color: var(--text-muted); }
 
 @media (max-width: 1180px) {

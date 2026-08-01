@@ -8,7 +8,7 @@
 
 import { api } from '../api.js';
 import {
-  el, textCell, selectCell, loading, toast, emptyState, confirmDialog,
+  el, textCell, selectCell, dropdown, loading, toast, emptyState, confirmDialog,
   formatMonth,
 } from '../ui.js';
 
@@ -116,15 +116,13 @@ export async function renderMoney(root) {
   /* --- filter bar ------------------------------------------------------ */
   const months = [...new Set(all.filter(m => m.date)
     .map(m => m.date.slice(0, 7)))].sort().reverse();
-  const select = (label, key, allLabel, options) => {
-    const sel = el('select', { class: 'filter-select' },
-      el('option', { value: '' }, allLabel),
-      options.map(o => el('option', { value: o.value }, o.label)));
-    sel.value = filters[key] || '';
-    sel.addEventListener('change', () => { filters[key] = sel.value; refresh(); });
-    return el('label', { class: 'filter-field' },
-      el('span', { class: 'filter-label' }, label), sel);
-  };
+  // Same dropdown() the library filter bar uses — a native <select> popup
+  // cannot be styled and would open as a white sheet on this dark theme.
+  const select = (label, key, allLabel, options) =>
+    el('div', { class: 'filter-field' },
+      el('span', { class: 'filter-label' }, label),
+      dropdown([{ value: '', label: allLabel }, ...options], filters[key] || '',
+               v => { filters[key] = v; refresh(); }, { ariaLabel: label }));
   root.append(el('div', { class: 'filter-bar' },
     select('Month', 'month', 'All months',
            months.map(m => ({ value: m, label: formatMonth(m) }))),

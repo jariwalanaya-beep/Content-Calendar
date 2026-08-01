@@ -43,6 +43,9 @@ export const state = {
     // must have. The detail view writes to it to jump into a filtered library.
     status: '', type: '', performance: '', month: '', media: '',
   },
+  // Hash of the last list view visited. The detail page reads it to label its
+  // back link and to pick which list its ‹ › stepper walks.
+  returnTo: '#/library',
 };
 
 const viewRoot = () => document.getElementById('view');
@@ -78,11 +81,18 @@ async function route() {
   }
   openDetailId = detailId;
 
+  // Remember the last list the user was on, so a detail page opened from
+  // Deadlines goes *back* to Deadlines and steps through that list rather
+  // than silently dumping the user in the library.
+  if (name !== 'content') state.returnTo = location.hash || '#/library';
+
   // Highlight the current view in the top bar. The detail page belongs to
-  // the library, so Library stays lit there.
+  // whichever list it was opened from, so that tab stays lit while editing.
+  const cameFrom = (state.returnTo || '').split('/')[2];
   const active = name === 'weekly' ? 'weekly'
     : name === 'money' ? 'money'
-    : name === 'content' ? 'table'
+    : name === 'content'
+      ? (LIBRARY_RENDERERS[cameFrom] ? cameFrom : 'table')
     : (LIBRARY_RENDERERS[parts[1]] ? parts[1] : 'table');
   document.querySelectorAll('.section-link').forEach(a =>
     a.classList.toggle('active', a.dataset.route === active));

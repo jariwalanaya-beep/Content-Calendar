@@ -32,7 +32,7 @@ static files.
 | `database.py` | Schema DDL + connection; enums stored as plain TEXT |
 | `storage.py` | Media file storage under `media/{content_id}/{raw|final}/` |
 | `static/js/app.js` | Hash router + shared state + top bar |
-| `static/js/ui.js` | `el()` DOM factory, `svg()` twin lives in dashboard.js; STATUSES / PERFORMANCES / TYPES vocab lists with chip colours; toasts, dialogs |
+| `static/js/ui.js` | `el()` DOM factory, `svg()` twin lives in dashboard.js; STATUSES / PERFORMANCES / TYPES vocab lists with chip colours; `dropdown()`; toasts, dialogs |
 | `static/js/views/` | One module per view (library, dashboard, detail, weekly, money…) |
 | `static/css/style.css` | All styling; CSS vars at top define the dark theme |
 | `content_hub.db` | The live SQLite database (`content_hub.db.bak` = backup from 2026-07-28, pre type-vocabulary rewrite) |
@@ -60,6 +60,20 @@ Hypothetical, Debate, Pitch. `Performance`: Viral / Average / Failed.
 ⚠ The DB stores these as plain TEXT. Removing an enum value makes GET
 endpoints crash on old rows (response validation), so migrate or NULL the
 old values in `content` when changing a vocabulary.
+
+## Dropdowns
+
+Filter bars use **`dropdown()` from [ui.js](static/js/ui.js), never a native
+`<select>`** — a select's option list is drawn by the OS and takes no CSS, so
+on this dark theme it opens as a white sheet. `dropdown()` is a button plus a
+panel we own (click-outside, Escape, ↑/↓/Enter, aria listbox roles).
+
+⚠ `#view`'s entry animation makes every direct child its own stacking
+context, so `.filter-bar` carries `position: relative; z-index: 20` — without
+it the open panel paints *behind* the table below it.
+
+Inline table cells still use `selectCell()` (a real `<select>`): there the
+popup is a brief native interaction on a chip, not a designed surface.
 
 ## Colour system ([style.css](static/css/style.css) section 1)
 
@@ -96,7 +110,17 @@ but `media` wins when both are sent.
 finished but it never went up on the channel. It is the only `media` value
 that needs both halves: a WHERE on status *and* a HAVING on `final_count`.
 
-Three things read that state from outside the table:
+`state.returnTo` (set by the router on every non-detail route) is the hash of
+the last list visited. The detail page uses it for three things: the back
+link's label and target, which tab stays lit in the top bar, and **which list
+the ‹ › stepper walks** — opened from Deadlines it steps through
+`deadlineList()`, not the library.
+
+Downloads are named after the entry's **topic**, not the uploaded filename
+(see `download_media` in [media.py](routers/media.py)): final → `Topic.mp4`,
+raw → `Topic (raw).mp4`, numbered when a bucket holds more than one.
+
+Three things read the filter state from outside the table:
 
 - The dashboard's **⬆ To upload** stat tile (`statTile(…, 'unposted')`) is
   clickable and drills into that filter.
@@ -120,7 +144,11 @@ hashes are reset to `#/library`.
 
 Card builders, all fed by the one `/api/content` list:
 
-- `barCard` — horizontal label|bar|count rows (Pipeline, Content type).
+- `barCard` — horizontal label|bar|count rows (Pipeline, Content type,
+  Uploads by weekday).
+- `footageCard` — "Footage bank": the funnel by *material* rather than status
+  (Shot-not-cut / Cut-not-posted / Published) plus a line stating how much is
+  editable without new filming. Built on `barCard`.
 - `perfStackCard` — Performance by type: one stacked horizontal bar per
   type (Viral|Average|Failed segments), sorted by rated-video count, legend
   below. Status colours `#2fa568` / `#b98d18` / `#bd3454` are
@@ -128,11 +156,16 @@ Card builders, all fed by the one `/api/content` list:
 - `columnCard` — vertical columns (uploads per week histogram).
 - `lineCard` — line/area/spline; renders an explanatory empty state until
   it has ≥ 2 points (a lone dot reads as broken).
-- `radarCard` — single-series radar (uploads by weekday).
-- `donutCard`, `statTile` — completion ring, headline numbers.
+- `statTile` — headline numbers; passing a `mediaFilter` makes the tile a
+  clickable shortcut into the library (⬆ To upload does this).
 
 Charts use the accent hue for single-series marks; only the performance
 stack is multi-series and carries a legend.
+
+**A card has to change a decision to stay.** The completion donut and the
+weekday radar were removed on that test: a ratio that only ever climbs toward
+100% is a status bar, and a radar is the slowest way to read seven numbers
+(weekday is now plain bars off a shared baseline).
 
 ## Environment quirks
 

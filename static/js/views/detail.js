@@ -52,13 +52,23 @@ export async function discardIfEmpty(id) {
  */
 async function siblings(id) {
   const { state } = await import('../app.js');
-  const f = state.filters;
-  const query = {
-    search: state.search, sort: state.sort, direction: state.direction,
-    status: f.status, type: f.type, performance: f.performance,
-    month: f.month, media: f.media || undefined,
-  };
-  let list = await api.listContent(query);
+  const from = state.returnTo || '#/library';
+
+  let list;
+  if (from.includes('/deadlines')) {
+    // Opened from Deadlines: walk that list, in its order, so ‹ › stays
+    // inside the assignments the user was working through.
+    const { deadlineList } = await import('./deadlines.js');
+    list = await deadlineList(state);
+  } else {
+    const f = state.filters;
+    list = await api.listContent({
+      search: state.search, sort: state.sort, direction: state.direction,
+      status: f.status, type: f.type, performance: f.performance,
+      month: f.month, media: f.media || undefined,
+    });
+  }
+
   let idx = list.findIndex(i => i.id === id);
   if (idx === -1) {
     list = await api.listContent({ sort: state.sort, direction: state.direction });
@@ -70,6 +80,16 @@ async function siblings(id) {
     prev: idx > 0 ? list[idx - 1] : null,
     next: idx !== -1 && idx < list.length - 1 ? list[idx + 1] : null,
   };
+}
+
+/** Where "back" goes, and what it is called, based on the list we came from. */
+function backLink(returnTo) {
+  const label =
+    returnTo.includes('/deadlines') ? 'Deadlines' :
+    returnTo.includes('/calendar')  ? 'Calendar'  :
+    returnTo.includes('/month')     ? 'This Month' :
+    returnTo.includes('/dashboard') ? 'Dashboard' : 'Library';
+  return el('a', { class: 'btn btn-ghost btn-sm', href: returnTo }, `← ${label}`);
 }
 
 /** ‹ / › stepper plus an "n of m" position readout. */
@@ -93,8 +113,11 @@ export async function renderDetail(root, id) {
   const spinner = loading();
   root.append(spinner);
   // One round trip for both: the entry and its position in the library.
-  const [itemLoaded, sibs] = await Promise.all([api.getContent(id), siblings(id)]);
+  const [itemLoaded, sibs, app] = await Promise.all([
+    api.getContent(id), siblings(id), import('../app.js'),
+  ]);
   let item = itemLoaded;
+  const returnTo = app.state.returnTo || '#/library';
   spinner.remove();
 
   const save = patch => api.updateContent(id, patch);
@@ -122,7 +145,7 @@ export async function renderDetail(root, id) {
 
   /* --- header --------------------------------------------------------- */
   page.append(el('div', { class: 'detail-top' },
-    el('a', { class: 'btn btn-ghost btn-sm', href: '#/library' }, '← Library'),
+    backLink(returnTo),
     stepper(sibs),
     el('span', { class: 'spacer' }),
     el('span', { class: 'media-meta' }, `Updated ${item.updated_at.slice(0, 16).replace('T', ' ')}`),
@@ -139,7 +162,7 @@ export async function renderDetail(root, id) {
         try {
           await api.deleteContent(id);
           toast('Entry deleted');
-          location.hash = '#/library';
+          location.hash = returnTo;   // back where the entry was opened from
         } catch (err) { toast(err.message, true); }
       },
     }, '🗑 Delete'),

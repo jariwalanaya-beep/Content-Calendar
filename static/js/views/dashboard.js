@@ -1,11 +1,13 @@
 /**
  * Dashboard — the channel at a glance.
  *
- * A row of headline stat tiles, a completion donut, one bar chart per
- * question (pipeline, type), a performance-by-type stacked bar, an
- * uploads-by-weekday radar, and a full-width videos-per-month graph.
- * Everything derives from the same content list the other views use, so it
- * is always current.
+ * A row of headline stat tiles, one bar chart per question (pipeline, type,
+ * footage bank, weekday), a performance-by-type stacked bar, and the
+ * full-width momentum curve. Everything derives from the same content list
+ * the other views use, so it is always current.
+ *
+ * Cards earn their place by changing a decision. A completion ring that only
+ * ever crawls toward 100% was cut for that reason.
  *
  * Single-series marks share the accent hue (validated against the dark
  * surface) and identity comes from labels. The one multi-series chart, the
@@ -92,81 +94,6 @@ function barCard(title, counts, { hideZero = false, empty = 'No data yet' } = {}
           : null),
       el('div', { class: 'bar-count' }, String(n))));
   }
-  return card;
-}
-
-/**
- * A titled card holding a column (vertical bar) chart with a y-axis,
- * recessive gridlines, rounded column tops and a native tooltip per column.
- * `contiguous` is the histogram variant: adjacent bins touch, separated only
- * by a 2px surface gap, because the x-axis is one continuous scale.
- */
-function columnCard(title, counts, { wide = false, mid = false, contiguous = false,
-                                     empty = 'No data yet' } = {}) {
-  const entries = Object.entries(counts);
-  const card = el('div', { class: `chart-card${wide ? ' chart-wide' : ''}` },
-    el('div', { class: 'chart-title' }, title));
-  if (!entries.length || entries.every(([, n]) => n === 0)) {
-    card.append(el('div', { class: 'chart-empty' }, empty));
-    return card;
-  }
-
-  // The viewBox tracks the rendered size (a ~400px card, ~700px for `mid`,
-  // or the full page for `wide`) so SVG units stay near 1:1 CSS pixels and
-  // the axis text renders at its intended size instead of scaling down.
-  const W = wide ? 1240 : mid ? 610 : 400,
-        H = 190, padL = 30, padR = 8, padT = 18, padB = 24;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
-  const base = padT + plotH;
-  const max = Math.max(...entries.map(([, n]) => n));
-  // Cap the band so a handful of columns cluster at a readable width in the
-  // middle instead of drifting hundreds of pixels apart across a wide plot.
-  const band = Math.min(plotW / entries.length, contiguous ? 130 : 110);
-  const startX = padL + (plotW - band * entries.length) / 2;
-  const bw = contiguous ? band - 2 : Math.min(44, band * 0.62);
-
-  const chart = svg('svg', {
-    viewBox: `0 0 ${W} ${H}`, class: 'colchart', role: 'img',
-    'aria-label': title,
-  });
-
-  // Gridlines + y labels at 0, mid (when useful) and max — recessive.
-  const ticks = max >= 4 ? [0, Math.round(max / 2), max] : [0, max];
-  for (const t of [...new Set(ticks)]) {
-    const y = base - (t / max) * plotH;
-    chart.append(
-      svg('line', { x1: padL, x2: W - padR, y1: y, y2: y, class: 'gridline' }),
-      svg('text', { x: padL - 6, y: y + 3, 'text-anchor': 'end',
-                    class: 'axis-label' }, t));
-  }
-
-  entries.forEach(([label, n], i) => {
-    const x = startX + i * band + (band - bw) / 2;
-    const h = (n / max) * plotH;
-    const y = base - h;
-    const r = Math.min(4, h);          // rounded top, flat baseline
-
-    const col = svg('path', {
-      class: 'col-bar',
-      d: `M${x},${base} L${x},${y + r} Q${x},${y} ${x + r},${y}` +
-         ` L${x + bw - r},${y} Q${x + bw},${y} ${x + bw},${y + r}` +
-         ` L${x + bw},${base} Z`,
-    }, svg('title', {}, `${label}: ${n}`));
-    chart.append(col);
-
-    // Direct value label above the column; skip zeros to reduce noise.
-    if (n > 0) {
-      chart.append(svg('text', {
-        x: x + bw / 2, y: y - 5, 'text-anchor': 'middle', class: 'col-value',
-      }, n));
-    }
-    chart.append(svg('text', {
-      x: startX + i * band + band / 2, y: H - 8,
-      'text-anchor': 'middle', class: 'axis-label',
-    }, label));
-  });
-
-  card.append(chart);
   return card;
 }
 
@@ -283,64 +210,31 @@ function lineCard(title, counts, { wide = false, smooth = false, area = false,
 }
 
 /**
- * Radar card — one spoke per category. Fits cyclical categories (weekdays),
- * where the shape reads as the week's rhythm at a glance.
+ * Footage bank — the production funnel by *material*, not by status label:
+ * shot -> cut -> published. The top row is the one that plans next week,
+ * since it is work you can do without filming anything new.
+ *
+ * Counts media rather than the Status field, so an entry left on the wrong
+ * status still lands in the right bucket here.
  */
-function radarCard(title, counts, { empty = 'No data yet' } = {}) {
-  const entries = Object.entries(counts);
-  const card = el('div', { class: 'chart-card radar-card' },
-    el('div', { class: 'chart-title' }, title));
-  const max = Math.max(...entries.map(([, n]) => n));
-  if (!entries.length || max === 0) {
-    card.append(el('div', { class: 'chart-empty' }, empty));
-    return card;
-  }
+function footageCard(items) {
+  const rawOnly   = items.filter(i => i.raw_count > 0 && i.final_count === 0).length;
+  const cutOnly   = items.filter(i => i.final_count > 0 && i.status !== 'Posted').length;
+  const published = items.filter(i => i.status === 'Posted').length;
+  const rawFiles  = items.reduce((n, i) => n + i.raw_count, 0);
 
-  const W = 300, H = 228, cx = W / 2, cy = H / 2 + 4, R = 76;
-  const k = entries.length;
-  const pt = (i, r) => {
-    const a = -Math.PI / 2 + (i * 2 * Math.PI) / k;
-    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-  };
-  const ring = r => entries.map((_, i) => pt(i, r).join(',')).join(' ');
+  const card = barCard('Footage bank', {
+    'Shot, not cut': rawOnly,
+    'Cut, not posted': cutOnly,
+    'Published': published,
+  }, { empty: 'No footage uploaded yet' });
 
-  const chart = svg('svg', {
-    viewBox: `0 0 ${W} ${H}`, class: 'radar', role: 'img', 'aria-label': title,
-  });
-
-  // Grid: two rings (max, half) plus a spoke per category — all recessive.
-  chart.append(
-    svg('polygon', { points: ring(R), class: 'radar-ring' }),
-    svg('polygon', { points: ring(R / 2), class: 'radar-ring' }));
-  entries.forEach((_, i) => {
-    const [x, y] = pt(i, R);
-    chart.append(svg('line', { x1: cx, y1: cy, x2: x, y2: y, class: 'radar-ring' }));
-  });
-  if (max >= 2) {
-    chart.append(
-      svg('text', { x: cx + 5, y: cy - R + 11, class: 'axis-label' }, max),
-      svg('text', { x: cx + 5, y: cy - R / 2 + 11, class: 'axis-label' },
-          Math.round(max / 2)));
-  }
-
-  // The data polygon, then a marker + tooltip per vertex.
-  chart.append(svg('polygon', {
-    class: 'radar-fill',
-    points: entries.map(([, n], i) => pt(i, (n / max) * R).join(',')).join(' '),
-  }));
-  entries.forEach(([label, n], i) => {
-    const [x, y] = pt(i, (n / max) * R);
-    chart.append(svg('circle', { cx: x, cy: y, r: 3.5, class: 'line-dot' },
-      svg('title', {}, `${label}: ${n}`)));
-    const [lx, ly] = pt(i, R + 13);
-    const cos = Math.cos(-Math.PI / 2 + (i * 2 * Math.PI) / k);
-    chart.append(svg('text', {
-      x: lx, y: ly + 3.5, class: 'axis-label',
-      'text-anchor': cos > 0.35 ? 'start' : cos < -0.35 ? 'end' : 'middle',
-    }, label));
-  });
-
-  card.append(chart);
+  // The line the card exists for: what is makeable with no new filming.
+  card.append(el('div', { class: 'chart-empty' },
+    rawOnly
+      ? `${rawOnly} ${rawOnly === 1 ? 'entry' : 'entries'} editable now · ` +
+        `${rawFiles} raw ${rawFiles === 1 ? 'file' : 'files'} banked`
+      : 'Every clip you have shot is already cut'));
   return card;
 }
 
@@ -392,29 +286,55 @@ function perfStackCard(title, items, { empty = 'No data yet' } = {}) {
   return card;
 }
 
-/** Donut showing how much of the assigned work is signed off. */
-function donutCard(done, total) {
-  const pct = total ? Math.round((done / total) * 100) : 0;
-  const r = 52, c = 2 * Math.PI * r;
+/**
+ * Content type as a two-part stack: how much of each type is still BANKED
+ * (shot, no final cut) versus already CUT. Emphasis colouring — the banked
+ * part wears the accent because it is the actionable half, the cut part
+ * recedes to grey — so the card answers "what can I make next?" rather than
+ * just "what have I made?".
+ *
+ * Sorted by total, biggest first: these are magnitudes to compare, and a
+ * magnitude chart reads fastest in rank order rather than vocabulary order.
+ * Types you have never used stay at the bottom on zero, which is itself
+ * information.
+ */
+function typeStackCard(title, items, { empty = 'No data yet' } = {}) {
+  const groups = TYPES
+    .map(t => {
+      const of = items.filter(i => i.type === t.value);
+      const cut = of.filter(i => i.final_count > 0).length;
+      return { type: t.value, cut, banked: of.length - cut, total: of.length };
+    })
+    .sort((a, b) => b.total - a.total);
 
-  const card = el('div', { class: 'chart-card donut-card' },
-    el('div', { class: 'chart-title' }, 'Edits completed'));
-  card.append(
-    svg('svg', { viewBox: '0 0 140 140', class: 'donut',
-                 role: 'img', 'aria-label': `${pct}% of edits completed` },
-      svg('circle', { cx: 70, cy: 70, r, class: 'donut-track' }),
-      // At 0% the rounded line-cap would still paint a dot, so skip the arc.
-      pct === 0 ? null : svg('circle', {
-        cx: 70, cy: 70, r, class: 'donut-arc',
-        'stroke-dasharray': `${(c * pct) / 100} ${c}`,
-        transform: 'rotate(-90 70 70)',
-      }, svg('title', {}, `${done} of ${total} done`)),
-      svg('text', { x: 70, y: 68, 'text-anchor': 'middle',
-                    class: 'donut-pct' }, `${pct}%`),
-      svg('text', { x: 70, y: 88, 'text-anchor': 'middle',
-                    class: 'donut-sub' }, `${done} of ${total}`)),
-    el('div', { class: 'chart-empty' },
-       total ? 'of all videos marked Done' : 'No videos yet'));
+  const card = el('div', { class: 'chart-card' },
+    el('div', { class: 'chart-title' }, title));
+  if (!groups.some(g => g.total)) {
+    card.append(el('div', { class: 'chart-empty' }, empty));
+    return card;
+  }
+
+  const max = Math.max(...groups.map(g => g.total));
+  for (const g of groups) {
+    card.append(el('div', { class: `bar-row${g.total ? '' : ' bar-zero'}` },
+      el('div', { class: 'bar-label' }, g.type),
+      el('div', { class: 'bar-track' },
+        g.total
+          ? el('div', { class: 'stack-fill', style: `width:${(g.total / max) * 100}%` },
+              g.banked ? el('div', { class: 'stack-seg seg-banked',
+                                     style: `flex-grow:${g.banked}`,
+                                     title: `${g.type} — banked: ${g.banked}` }) : null,
+              g.cut ? el('div', { class: 'stack-seg seg-cut',
+                                  style: `flex-grow:${g.cut}`,
+                                  title: `${g.type} — cut: ${g.cut}` }) : null)
+          : null),
+      el('div', { class: 'bar-count' }, String(g.total))));
+  }
+  card.append(el('div', { class: 'chart-legend' },
+    el('span', { class: 'legend-item' },
+      el('span', { class: 'legend-dot seg-banked' }), 'Banked'),
+    el('span', { class: 'legend-item' },
+      el('span', { class: 'legend-dot seg-cut' }), 'Cut')));
   return card;
 }
 
@@ -440,33 +360,6 @@ function fillMonthRange(byMonth) {
        m = m === 12 ? 1 : m + 1, y = m === 1 ? y + 1 : y,
        ym = `${y}-${String(m).padStart(2, '0')}`) {
     out[monthLabel(ym)] = byMonth[ym] || 0;
-  }
-  return out;
-}
-
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-/** Uploads per week (Monday-keyed, gap weeks kept as zero). */
-function uploadsByWeek(items) {
-  const days = items.filter(i => i.upload_date).map(i => i.upload_date).sort();
-  if (!days.length) return {};
-  const monday = isoDay => {
-    const d = new Date(isoDay + 'T00:00:00');
-    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-    return d;
-  };
-  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` +
-                   `-${String(d.getDate()).padStart(2, '0')}`;
-  const byWeek = {};
-  for (const day of days) {
-    const k = iso(monday(day));
-    byWeek[k] = (byWeek[k] || 0) + 1;
-  }
-  const out = {};
-  const last = monday(days[days.length - 1]);
-  for (const w = monday(days[0]); w <= last; w.setDate(w.getDate() + 7)) {
-    out[w.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })] =
-      byWeek[iso(w)] || 0;
   }
   return out;
 }
@@ -540,31 +433,23 @@ export async function renderDashboard(root, state) {
     statTile('With files', withMedia)));
 
   const byStatus = countBy(items, i => i.status, STATUSES.map(s => s.value));
-  const byType = countBy(items, i => i.type, TYPES.map(t => t.value));
-  const byWeekday = countBy(items, i => {
-    if (!i.upload_date) return null;
-    const dow = new Date(i.upload_date + 'T00:00:00').getDay();
-    return WEEKDAYS[(dow + 6) % 7];          // shift to Monday-first
-  }, WEEKDAYS);
   const monthCounts = fillMonthRange(countBy(items, i =>
     i.upload_date ? i.upload_date.slice(0, 7) : null));
 
-  // A row of three, two half-width pairs, then the full-width momentum curve.
+  // A row of three, one half-width pair, then the full-width momentum curve.
+  // Every card here has to survive one question: does it change what I do
+  // next? Weekday-of-upload and uploads-per-week did not — the first showed
+  // seven near-identical bars, the second re-plotted the same handful of
+  // dates the month line already carries.
   root.append(el('div', { class: 'dash-grid' },
     barCard('Pipeline', byStatus),
-    barCard('Content type', byType,
+    typeStackCard('Content type — banked vs cut', items,
       { empty: 'No videos have a type yet' }),
-    donutCard(done, items.length)));
+    footageCard(items)));
 
   root.append(el('div', { class: 'dash-grid dash-2' },
     perfStackCard('Performance by type', items,
       { empty: 'Rate posted videos (Viral / Average / Failed) and give them a type — the chart draws itself' }),
-    radarCard('Uploads by weekday', byWeekday,
-      { empty: 'No uploads dated yet' })));
-
-  root.append(el('div', { class: 'dash-grid dash-2' },
-    columnCard('Videos uploaded per week', uploadsByWeek(items),
-      { mid: true, contiguous: true, empty: 'No uploads dated yet' }),
     lineCard('Videos per month', monthCounts,
       { empty: 'No uploads dated yet' })));
 

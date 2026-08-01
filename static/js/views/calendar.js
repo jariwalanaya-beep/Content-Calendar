@@ -11,7 +11,7 @@ import {
   el, chip, loading, formatMonth, shiftMonth, toISODate, currentMonth, STATUSES,
 } from '../ui.js';
 
-const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MAX_PER_DAY = 3;   // beyond this, show a "+N more" line
 
 export async function renderCalendar(root, state) {
@@ -44,8 +44,8 @@ export async function renderCalendar(root, state) {
   // --- grid geometry ---
   const [year, month] = state.month.split('-').map(Number);
   const firstOfMonth = new Date(year, month - 1, 1);
-  // JS weeks start Sunday; shift so Monday is column 0.
-  const leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
+  // getDay() is already 0 = Sunday, which is the column order we want.
+  const leadingBlanks = firstOfMonth.getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
   const todayISO = toISODate(new Date());
 

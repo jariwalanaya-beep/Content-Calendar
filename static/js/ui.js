@@ -126,6 +126,96 @@ export function chip(value, list) {
   return el('span', { class: `chip chip-${colorOf(list, value)}` }, value);
 }
 
+/* --- Dropdown ------------------------------------------------------------ */
+
+// Only one panel is ever open; opening a second closes the first.
+let closeOpenDropdown = null;
+
+/**
+ * A dropdown built out of a button and our own panel.
+ *
+ * A native <select> renders its option list through the operating system, and
+ * that popup takes no CSS at all — on this dark theme it opens as a white
+ * sheet with the OS highlight colour. Anywhere the open state is visible to
+ * the user, we draw the list ourselves instead.
+ *
+ * `options` is [{value, label}]; the caller pins its own "all" entry at the
+ * top. Selecting a value calls `onChange(value)`. Supports click-outside,
+ * Escape, and ↑/↓/Enter, and reports state through aria-* so it still reads
+ * as a listbox to assistive tech.
+ */
+export function dropdown(options, value, onChange, { ariaLabel = '' } = {}) {
+  const wrap = el('div', { class: 'dd' });
+  const chosen = options.find(o => o.value === value) || options[0];
+
+  const btn = el('button', {
+    type: 'button', class: `dd-btn${value ? ' is-set' : ''}`,
+    'aria-haspopup': 'listbox', 'aria-expanded': 'false',
+    'aria-label': ariaLabel || null,
+  },
+    el('span', { class: 'dd-value' }, chosen ? chosen.label : ''),
+    el('span', { class: 'dd-caret' }));
+
+  const panel = el('div', { class: 'dd-panel', role: 'listbox' });
+  const items = options.map(o => {
+    const item = el('div', {
+      class: `dd-item${o.value === value ? ' is-selected' : ''}`,
+      role: 'option', tabindex: '-1',
+      'aria-selected': o.value === value ? 'true' : 'false',
+      onclick: () => { close(); if (o.value !== value) onChange(o.value); },
+    },
+      el('span', { class: 'dd-item-label' }, o.label),
+      el('span', { class: 'dd-check' }, '✓'));
+    panel.append(item);
+    return item;
+  });
+
+  function close() {
+    wrap.classList.remove('is-open');
+    btn.setAttribute('aria-expanded', 'false');
+    if (closeOpenDropdown === close) closeOpenDropdown = null;
+    document.removeEventListener('mousedown', onDocDown, true);
+    document.removeEventListener('keydown', onKey, true);
+  }
+
+  function onDocDown(e) { if (!wrap.contains(e.target)) close(); }
+
+  function onKey(e) {
+    if (e.key === 'Escape') { e.preventDefault(); close(); btn.focus(); return; }
+    if (e.key === 'Tab') { close(); return; }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
+    const here = items.indexOf(document.activeElement);
+    if (e.key === 'Enter') {
+      if (here !== -1) { e.preventDefault(); items[here].click(); }
+      return;
+    }
+    e.preventDefault();
+    const step = e.key === 'ArrowDown' ? 1 : -1;
+    const next = here === -1
+      ? (step === 1 ? 0 : items.length - 1)
+      : (here + step + items.length) % items.length;
+    items[next].focus();
+  }
+
+  function open() {
+    if (closeOpenDropdown) closeOpenDropdown();
+    wrap.classList.add('is-open');
+    btn.setAttribute('aria-expanded', 'true');
+    closeOpenDropdown = close;
+    document.addEventListener('mousedown', onDocDown, true);
+    document.addEventListener('keydown', onKey, true);
+    // Start on the current value so ↑/↓ walks from where the user already is.
+    (items[options.findIndex(o => o.value === value)] || items[0])?.focus();
+  }
+
+  btn.addEventListener('click', () => {
+    wrap.classList.contains('is-open') ? close() : open();
+  });
+
+  wrap.append(btn, panel);
+  return wrap;
+}
+
 /**
  * A <select> that saves on change and flashes green to confirm.
  * `onSave` receives the new value and should return a promise.

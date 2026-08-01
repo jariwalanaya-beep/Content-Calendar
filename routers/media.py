@@ -33,6 +33,63 @@ from models import MediaFile
 router = APIRouter(tags=["media"])
 
 
+def _safe_filename_stem(topic: str) -> str:
+    """
+    Turn a topic into something every filesystem will accept.
+
+    Strips the characters Windows forbids (\\ / : * ? " < > |) plus control
+    characters, collapses whitespace, and trims trailing dots/spaces which
+    Windows silently drops. Returns "" when nothing usable is left, and the
+    caller then falls back to the uploaded filename.
+    """
+    cleaned = "".join(
+        " " if ch in '\\/:*?"<>|' or ord(ch) < 32 else ch
+        for ch in (topic or "")
+    )
+    cleaned = " ".join(cleaned.split()).strip(" .")
+    # Keep well clear of the 255-byte limit once a suffix is appended.
+    return cleaned[:120].strip()
+
+
+def _saved_filename(conn: sqlite3.Connection, row: sqlite3.Row, path: Path) -> str:
+    """
+    What this video should be called once it lands in someone's Downloads.
+
+    Named after the entry's **topic**, not the filename the camera or editor
+    produced: "Tomino's Hell.mp4" is what belongs in an uploads folder, not
+    "IMG_4471.mp4" or "stream.mp4". The final cut takes the bare topic — it is
+    the video that goes to the channel — while raw is always tagged, otherwise
+    an entry's raw and final would save under one name and clobber each other.
+    Falls back to the uploaded name if the topic has no usable characters.
+    """
+    content = conn.execute(
+        "SELECT topic FROM content WHERE id = ?", (row["content_id"],)
+    ).fetchone()
+    stem = _safe_filename_stem(content["topic"] if content else "")
+    if not stem:
+        return row["original_name"]
+
+    # Where this file sits among its siblings of the same kind, so a second
+    # raw clip becomes "Topic (raw 2).mp4" rather than colliding.
+    position = conn.execute(
+        "SELECT COUNT(*) FROM media_file "
+        "WHERE content_id = ? AND kind = ? AND (uploaded_at, id) <= (?, ?)",
+        (row["content_id"], row["kind"], row["uploaded_at"], row["id"]),
+    ).fetchone()[0]
+    siblings = conn.execute(
+        "SELECT COUNT(*) FROM media_file WHERE content_id = ? AND kind = ?",
+        (row["content_id"], row["kind"]),
+    ).fetchone()[0]
+
+    if row["kind"] == "raw":
+        stem = f"{stem} (raw {position})" if siblings > 1 else f"{stem} (raw)"
+    elif siblings > 1:
+        stem = f"{stem} ({position})"
+
+    suffix = Path(row["original_name"]).suffix or path.suffix
+    return f"{stem}{suffix}"
+
+
 def media_row_to_model(row: sqlite3.Row) -> MediaFile:
     """Convert a media_file DB row into the API shape, adding the stream URL."""
     return MediaFile(
@@ -196,8 +253,12 @@ def stream_media(
     return FileResponse(
         path,
         media_type=row["mime_type"] or "application/octet-stream",
-        # `inline` so the browser plays it rather than offering a download.
+        # `inline` so the browser plays it rather than offering a download —
+        # but still named, because "Save video as…" from the player's own menu
+        # hits this URL, and without a filename the browser falls back to the
+        # last path segment and writes "stream.mp4".
         content_disposition_type="inline",
+        filename=_saved_filename(conn, row, path),
         # Explicit even though FileResponse sets it on ranged replies — some
         # players check for it before attempting to seek at all.
         headers={"Accept-Ranges": "bytes"},
@@ -219,7 +280,7 @@ def download_media(
         raise HTTPException(500, "Stored media path is invalid")
     if not path.is_file():
         raise HTTPException(404, "File missing from disk")
-    return FileResponse(path, filename=row["original_name"])
+    return FileResponse(path, filename=_saved_filename(conn, row, path))
 
 
 # --------------------------------------------------------------------------- #

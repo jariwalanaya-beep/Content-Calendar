@@ -83,13 +83,59 @@ function finalUploadCell(item) {
   return el('span', {}, input, btn);
 }
 
+/**
+ * The deadline control — one place, one click.
+ *
+ * A bare <input type="date"> renders as faint "mm/dd/yyyy" that reads like
+ * disabled placeholder text, and in Chromium only its little calendar glyph
+ * opens the picker. So the visible control is a real button (the due badge
+ * when a date is set, "＋ Add deadline" when it is not) and the input sits
+ * behind it, rendered but invisible, driven by showPicker().
+ */
+function deadlineControl(item, save, due) {
+  const input = el('input', {
+    type: 'date', class: 'dl-input', value: item.deadline || '',
+    'aria-label': `Deadline for ${item.topic}`,
+  });
+
+  const btn = el('button', {
+    type: 'button',
+    class: `dl-control ${item.deadline ? `due-badge ${due.cls}` : 'is-empty'}`,
+    title: item.deadline ? `Due ${formatDate(item.deadline)} — click to change`
+                         : 'Set an editor deadline',
+    onclick: e => {
+      e.stopPropagation();
+      // showPicker() needs a user gesture, which this click is. focus() is the
+      // fallback for browsers that do not implement it.
+      try { input.showPicker(); } catch { input.focus(); }
+    },
+  }, item.done ? 'Completed'
+   : item.deadline ? due.text
+   : '＋ Add deadline');
+
+  input.addEventListener('change', async () => {
+    try {
+      await save({ deadline: input.value });
+      toast(input.value ? `Deadline set to ${formatDate(input.value)}`
+                        : 'Deadline cleared');
+      import('../app.js').then(m => m.refresh());
+    } catch (err) { toast(err.message, true); }
+  });
+
+  return el('div', { class: 'dl-wrap' }, btn, input);
+}
+
 // Kept across re-renders so the toggle survives a refresh.
 let showCompleted = false;
 
-export async function renderDeadlines(root, state) {
-  const spinner = loading();
-  root.append(spinner);
-
+/**
+ * The list this view shows, in the order it shows it.
+ *
+ * Exported because the detail page's ‹ › stepper walks it when the entry was
+ * opened from here — stepping must follow the list the user was actually
+ * looking at, not the library's.
+ */
+export async function deadlineList(state) {
   // Only entries actually assigned to someone. This view is about tracking
   // other people's work, so unassigned ideas would just be noise.
   const items = await api.listContent({
@@ -98,8 +144,6 @@ export async function renderDeadlines(root, state) {
     assigned: true,
     sort: 'deadline', direction: 'asc',
   });
-  spinner.remove();
-
   // Outstanding work first: entries with a deadline, soonest first, then the
   // ones with no deadline set yet.
   items.sort((a, b) => {
@@ -108,6 +152,14 @@ export async function renderDeadlines(root, state) {
     if (!b.deadline) return -1;
     return a.deadline.localeCompare(b.deadline);
   });
+  return items;
+}
+
+export async function renderDeadlines(root, state) {
+  const spinner = loading();
+  root.append(spinner);
+  const items = await deadlineList(state);
+  spinner.remove();
 
   const overdue = items.filter(i => !i.done && daysUntil(i.deadline) < 0).length;
 
@@ -169,13 +221,14 @@ export async function renderDeadlines(root, state) {
           class: 'topic-link',
           onclick: () => { location.hash = `#/content/${item.id}`; },
         }, item.topic),
-        textCell(item.deadline, v => save({ deadline: v }), { type: 'date' })),
+        // Caption line: the date itself, so the badge can stay relative
+        // ("In 3 days") without hiding which day that actually is.
+        el('div', { class: 'deadline-sub' },
+           item.deadline ? `due ${formatDate(item.deadline)}` : 'no deadline set')),
       el('div', { class: 'deadline-who' },
         textCell(item.assigned_to, v => save({ assigned_to: v }),
                  { placeholder: 'Unassigned' })),
-      el('div', {},
-        el('span', { class: `due-badge ${due.cls}` },
-           item.done ? 'Completed' : due.text)),
+      el('div', {}, deadlineControl(item, save, due)),
       el('div', {}, selectCell(item.status, STATUSES,
                                v => save({ status: v }), { allowEmpty: false })),
       el('div', { class: 'deadline-actions' }, finalUploadCell(item)),
