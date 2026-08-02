@@ -8,38 +8,41 @@
      3. Components      buttons, chips, inputs, toasts, dialog
      4. Views           table, deadlines, calendar, detail, weekly
 
-   DESIGN LANGUAGE — forest glass
+   DESIGN LANGUAGE — GRAPHITE
    The rules, applied everywhere and not negotiable per-component:
 
-     · The page is deep FOREST GREEN. One fixed diagonal gradient runs under
-       everything; nothing else paints the page background.
-     · A panel is a pane of glass: a translucent forest gradient over a heavy
-       backdrop blur, with a 1px white-at-8% rim. Never a flat block. The rim
-       is what separates panels — shadows stay almost invisible.
+     · The page is near-black COOL GREY. One fixed diagonal gradient runs
+       under everything; nothing else paints the page background.
+     · A panel is a pane of glass: a translucent graphite gradient over a
+       heavy backdrop blur, with a 1px cool-white rim at ~9%. Never a flat
+       block. The rim is what separates panels — shadows stay near-invisible.
      · Corners are generous: 20px on cards, 15px on controls, 12px inside.
      · Chrome text is small, uppercase and wide-tracked; numbers are set in
        the mono so columns line up.
-     · The sage --f-200 is the only interactive colour, and it is LIGHT on a
-       dark page — so anything filled with it takes --f-900 as ink, never
-       white.
+     · The accent is a LIGHT grey (--accent), so anything filled with it
+       takes the page colour as ink (--on-accent), never white.
 
    COLOUR SYSTEM
-   The whole interface is ONE six-step ramp, --f-900 (page floor) up to
-   --f-050 (near-white ink). Chips get their weight from how far up that ramp
-   they sit rather than from a second hue:
+   The whole interface is ONE grey ramp, --f-950 (page floor) up to --f-050
+   (near-white ink). Chips get their weight from how far up that ramp they
+   sit rather than from a second hue:
 
-       t1  quiet tint     t2  solid mid      t3  sage with dark ink
+       t1  quiet tint     t2  solid mid      t3  light fill, dark ink
 
    Tone names in ui.js (`t1`/`t2`/`t3`/`warn`/`bad`/`n`) map onto that, so
-   editing the six steps restyles every chip at once.
+   editing the ramp restyles every chip at once.
 
-   ⚠ AMBER and RED are the only non-green colours in the app, and they are
-   reserved as data: a monochrome palette physically cannot say "failed" or
-   "overdue". Never use them decoratively, and never add a third.
+   ⚠ Because the accent is grey rather than a saturated hue, it cannot carry
+   "active" on its own the way a coloured theme would — an accent-filled bar
+   and a normal bar read almost the same. So the accent is confined to thin
+   focus rings, the active nav tile and single-mark chart fills, and the
+   THREE STATUS COLOURS (--good / --warn / --bad) carry every meaningful
+   highlight. They are the only real colour on the page, which is exactly why
+   the amber "to upload" tile and the red "failed" bars land as hard as they
+   do. Never use them decoratively, and never add a fourth.
 
-   ⚠ Chart FILLS use --chart-* rather than any ramp step — large areas need
-   their own validated trio. `--chart-bad` was lifted to #cf4462 because the
-   old red measured only 2.73:1 against this greener page.
+   ⚠ Chart FILLS use --chart-* rather than any ramp step, but on graphite
+   they are simply the three status colours — nothing competes with them.
    ========================================================================== */
 
 /* --- 0. Fonts ------------------------------------------------------------ */
@@ -63,117 +66,153 @@
 :root {
   color-scheme: dark;
 
-  /* THE FOREST RAMP
-     The six supplied steps (marked ·) plus three derived ones. The additions
-     are not decoration — they were measured. The supplied set has two
-     structural gaps that make a UI look flat:
+  /* ── THE GRAPHITE PALETTE — the supplied source of truth ───────────────
+     Edit these ten-odd values and the whole app re-themes; everything below
+     is an alias or a mix of them. Names match the supplied spec exactly. */
 
-       #051F20→#0B2B26  ΔL 0.044   ┐ too close to read as separate
-       #0B2B26→#163832  ΔL 0.049   ┘ layers (an ordinal step wants ≥0.06)
-       #235347→#8EB69B  ΔL 0.334   ← a canyon: nothing lives in the mids
+  /* base surfaces */
+  --graphite-bg:    #0d0f11;  /* page background (near-black, cool grey)   */
+  --panel:          #14171a;  /* card background                           */
+  --panel-top:      #191d21;  /* card gradient top / active nav item       */
+  --nested:         #101315;  /* nested boxes (storage card, hover)        */
 
-     The canyon is the expensive one. With no mid-tone there is no readable
-     "quiet" colour, so the sage ends up doing muted text AND accent — which
-     is precisely what drains an accent of meaning. --f-400 fills it at
-     4.8:1 on a panel, so the sage can go back to being rare.
+  /* borders — the last two hex digits are an 8-bit alpha channel, so
+     #bec8d217 is #bec8d2 at ~9%. Identical to rgba(190,200,210,.09). */
+  --border-1:       #bec8d217; /* card border (~9%)                        */
+  --border-2:       #bec8d229; /* stronger border / hover (~16%)           */
 
-     step        L      role                                    */
-  --f-950: #03100f;  /* .159   page floor (derived)             */
-  --f-900: #051f20;  /* .220 · panels                           */
-  --f-800: #0b2b26;  /* .264 · raised panels                    */
-  --f-700: #163832;  /* .313 · dividers, chart tracks           */
-  --f-650: #194138;  /* .344   inputs (derived, ΔL .080 on card)*/
-  --f-600: #235347;  /* .405 · hover, active fill               */
-  --f-500: #4f7d68;  /* .550   dividers, faint text (derived)   */
-  --f-400: #6e9b85;  /* .650   secondary text (derived)         */
-  --f-200: #8eb69b;  /* .739 · SAGE — the accent, used sparingly */
-  --f-050: #daf1de;  /* .936 · primary ink                      */
+  /* text */
+  --label:          #6b757d;  /* uppercase labels (VIDEOS, POSTED…)        */
+  --ink:            #e6eaee;  /* main text + big numbers                   */
+  --dim:            #a3adb5;  /* secondary text                            */
+  --faint:          #5a636b;  /* tertiary / captions / zero rows           */
 
-  /* The green "hue" ramp is the forest itself: chips get their intensity
-     from how far up the ramp they sit, not from a different colour. */
-  --green-50:  var(--f-050);
-  --green-200: var(--f-200);
-  --green-400: #4e8f6d;
-  --green-900: var(--f-600);
+  /* accent — grey, so it rides thin: focus rings, active nav, single marks */
+  --accent-base:    #c3ccd4;  /* primary accent (active bar, focus)        */
+  --accent-muted:   #8a949c;  /* muted accent                              */
+  --icon-bg:        #5f6a72;  /* filled icon square background             */
+  --icon-fg:        #0d0f11;  /* icon glyph (matches page bg)              */
 
-  /* Amber and red are the ONLY non-green colours left, and they are reserved:
-     a monochrome palette cannot say "failed" or "overdue", so these stay as
-     data-only signals and are never used decoratively. */
+  /* progress bars */
+  --track:          #1a1f23;  /* empty bar track                           */
+  --fill:           #c9d2da;  /* bar fill                                  */
+  --fill-soft:      #454d54;  /* "banked" half of split bars               */
+
+  /* status — FIXED across any theme, and the only real colour on screen */
+  --good:           #57c98a;  /* viral / on-time green                     */
+  --warn-c:         #e8b05a;  /* to-upload / overdue amber                 */
+  --bad:            #e2707f;  /* failed red                                */
+
+  /* THE GREY RAMP
+     The palette above laid out as one ordinal ramp, floor → ink, so the
+     chip tones and surface layers can index into it by position. Steps
+     marked · are supplied verbatim; the rest are derived to keep adjacent
+     layers ≥ readable apart (two near-identical steps do not make two
+     layers — that is what makes a dark UI look flat).
+
+     step        role                                          */
+  --f-950: var(--graphite-bg);  /* · page floor                 */
+  --f-900: var(--nested);       /* · chrome, nested boxes       */
+  --f-800: var(--panel);        /* · cards                      */
+  --f-700: var(--panel-top);    /* · raised panels, dividers    */
+  --f-650: var(--track);        /* · inputs, chart tracks       */
+  --f-600: #272d33;             /*   hover, active fill (derived, the one
+                                     step that has to sit clearly above the
+                                     track or hover reads as nothing)      */
+  --f-500: var(--fill-soft);    /* · dividers, banked fills     */
+  --f-450: var(--faint);        /* · tertiary text              */
+  --f-400: var(--label);        /* · labels, captions           */
+  --f-300: var(--accent-muted); /* · muted accent               */
+  --f-250: var(--dim);          /* · secondary text             */
+  --f-200: var(--accent-base);  /* · THE ACCENT — used sparingly */
+  --f-100: var(--fill);         /* · bar fill                   */
+  --f-050: var(--ink);          /* · primary ink                */
+
+  /* The "green" hue ramp is the status green. Grey carries structure, so a
+     ramp exists here only to give chips a dark tint plus a legible ink. */
+  --green-50:  #eafaf1;
+  --green-200: #8fdcb3;
+  --green-400: var(--good);
+  --green-900: #163023;
+
+  /* Amber and red are reserved as data: grey physically cannot say "failed"
+     or "overdue", so these stay signals and are never used decoratively. */
   --amber-50:  #fff6e9;
-  --amber-200: #f6ad55;
-  --amber-400: #ed8936;
-  --amber-900: #4a2e10;
+  --amber-200: var(--warn-c);
+  --amber-400: #d99b3f;
+  --amber-900: #3a2a12;
 
   --red-50:    #ffecec;
-  --red-200:   #ff9b93;
-  --red-400:   #e5556e;
-  --red-900:   #4a1214;
+  --red-200:   #f0959f;
+  --red-400:   var(--bad);
+  --red-900:   #3a161c;
 
-  /* Kept so the two `blue-*` references left in the sheet resolve; both now
-     point at the forest so nothing paints blue. */
+  /* Kept so the handful of `blue-*`/`purple-*` references left in the sheet
+     resolve; all now point at the graphite so nothing paints a stray hue. */
   --blue-50:   var(--f-050);
   --blue-200:  var(--f-200);
   --blue-400:  var(--f-200);
   --blue-900:  var(--f-600);
-  --purple-400: #2f6d5c;
+  --purple-400: var(--icon-bg);
   --teal-300:   var(--f-200);
 
   /* Surfaces. The opaque values are the fallback for anywhere the glass
-     gradient cannot be used (inputs, tracks, inner fills). */
-  /* 60 / 30 / 10, and the page is the darkest thing on screen.
-     Note the SKIPPED rung: the floor jumps straight to --f-800 for panels
-     (ΔL .105) instead of stepping through --f-900 (ΔL .044, invisible). Two
-     adjacent ramp steps do not make two readable layers — that was why the
-     cards blended into the page. --f-900 still earns its keep as the
-     sidebar/topbar base, which sits *between* floor and card. */
-  --bg:            var(--f-950);   /* .159 — darkest, 60% of the screen */
-  --bg-elevated:   var(--f-900);   /* .220 — chrome                     */
-  --surface:       var(--f-800);   /* .264 — cards                      */
-  --surface-2:     var(--f-650);   /* .344 — inputs, tracks             */
-  --surface-hover: var(--f-600);   /* .405 — hover, active              */
+     gradient cannot be used (inputs, tracks, inner fills).
+     The page is the darkest thing on screen; chrome sits between the floor
+     and the cards, and inputs/tracks cut back down so a field reads as a
+     hole in the card rather than another card. */
+  --bg:            var(--f-950);   /* darkest, 60% of the screen */
+  --bg-elevated:   var(--f-900);   /* chrome, nested boxes       */
+  --surface:       var(--f-800);   /* cards                      */
+  --surface-2:     var(--f-650);   /* inputs, tracks             */
+  --surface-hover: var(--f-600);   /* hover, active              */
   /* Borders are light-on-dark rims, not darker lines — that rim is what
      makes a pane read as glass rather than as a hole. */
-  --border:        rgba(142, 182, 155, .16);
-  --border-strong: rgba(142, 182, 155, .30);
+  --border:        var(--border-1);   /* #bec8d217 ≈ rgba(190,200,210,.09) */
+  --border-strong: var(--border-2);   /* #bec8d229 ≈ rgba(190,200,210,.16) */
 
-  /* Secondary text is --f-400, NOT the sage. This is the single change that
-     gives the accent its meaning back: when every muted label is sage, sage
-     stops signalling "interactive". */
-  --text:          var(--f-050);
-  --text-muted:    var(--f-400);   /* 4.8:1 on a panel */
-  --text-faint:    var(--f-500);   /* 3.2:1 — labels, captions, disabled */
+  /* Three text weights, each a distinct rung: body ink, secondary, and the
+     uppercase label / caption tier. Nothing quieter than --text-faint is
+     allowed to carry a word the user has to read. */
+  --text:          var(--f-050);   /* #e6eaee */
+  --text-muted:    var(--f-250);   /* #a3adb5 — secondary text */
+  --text-faint:    var(--f-400);   /* #6b757d — labels, captions, disabled */
 
-  /* Sage is the interactive colour. It is LIGHT on a dark page, so anything
-     filled with it takes the darkest step as ink, not white. */
-  --accent:        var(--f-200);
-  --accent-hover:  #a6c9b1;
-  --accent-dim:    #4e8f6d;
+  /* The accent is a LIGHT grey, so anything filled with it takes the page
+     colour as ink, never white. And because it is grey it stays thin: focus
+     rings, the active nav tile, single-series chart marks. Meaningful
+     highlights are the job of --good / --warn / --danger. */
+  --accent:        var(--f-200);        /* #c3ccd4 */
+  --accent-hover:  var(--f-100);        /* #c9d2da */
+  --accent-dim:    var(--accent-muted); /* #8a949c */
   --accent-deep:   var(--f-600);
-  --accent-glow:   rgba(142, 182, 155, .26);
-  --accent-faint:  rgba(142, 182, 155, .11);
-  --on-accent:     var(--f-900);
+  --accent-glow:   rgba(190, 200, 210, .22);
+  --accent-faint:  rgba(190, 200, 210, .10);
+  --on-accent:     var(--icon-fg);      /* #0d0f11 */
 
-  --danger:        var(--red-400);
-  --warn:          var(--amber-200);
-  --success:       var(--green-400);
+  --danger:        var(--bad);
+  --warn:          var(--warn-c);
+  --success:       var(--good);
 
   /* The glass recipe. --glass is the card, --glass-2 the quieter inner pane,
-     --page-bg the one gradient under the whole app. */
-  /* Same geometry as the reference's gradients, re-derived on the forest. */
-  --page-bg: linear-gradient(159.02deg, #06191a 14.25%, #041413 56.45%, #03100f 86.14%);
-  --glass:   linear-gradient(127.09deg, rgba(11, 43, 38, .97) 19.41%, rgba(22, 56, 50, .70) 76.65%);
-  --glass-2: linear-gradient(126.97deg, rgba(5, 31, 32, .86) 28.26%, rgba(11, 43, 38, .80) 91.2%);
+     --page-bg the one gradient under the whole app. Same geometry as the
+     reference's gradients, re-derived on the graphite. */
+  --page-bg: linear-gradient(159.02deg, #131619 14.25%, #101214 56.45%, #0d0f11 86.14%);
+  --glass:   linear-gradient(127.09deg, rgba(20, 23, 26, .97) 19.41%, rgba(25, 29, 33, .70) 76.65%);
+  --glass-2: linear-gradient(126.97deg, rgba(16, 19, 21, .86) 28.26%, rgba(20, 23, 26, .80) 91.2%);
   --glass-blur: blur(60px);
-  /* Runs up the ramp, so the dark ink on it clears contrast at both ends. */
-  --brand-gradient: linear-gradient(213.03deg, #6fa587 36.66%, #8eb69b 77.75%);
+  /* The filled icon square: light grey plate, page-dark glyph. Runs up the
+     ramp so --on-accent clears contrast at both ends (7.9:1 at the dark
+     end). Used for the active nav tile and the brand mark. */
+  --brand-gradient: linear-gradient(213.03deg, var(--accent-muted) 0%, var(--accent) 100%);
+  /* The inactive icon square, from the palette's --icon-bg. */
+  --icon-plate: var(--icon-bg);
 
-  /* Chart fills. The ramp 400s are tuned to be bright as ink; as large areas
-     they sit above the safe lightness band and the green/amber pair loses
-     CVD separation. These three are validated against --bg-elevated. */
-  --chart-good: #2fa568;
-  --chart-warn: #b98d18;
-  /* Lifted from #bd3454: on the green page that step fell to 2.73:1. */
-  --chart-bad:  #cf4462;
+  /* Chart fills. On graphite these are simply the three status colours: the
+     page has no competing hue, so no separate large-area trio is needed. */
+  --chart-good: var(--good);
+  --chart-warn: var(--warn-c);
+  --chart-bad:  var(--bad);
 
   --radius-sm: 12px;
   --radius:    15px;
@@ -218,7 +257,7 @@ body {
 }
 a { color: inherit; text-decoration: none; }
 
-::selection { background: var(--accent-glow); color: #fff; }
+::selection { background: var(--accent-glow); color: var(--text); }
 
 /* Scrollbars, so they stop looking like a light-theme leftover. */
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
@@ -228,7 +267,7 @@ a { color: inherit; text-decoration: none; }
   background: var(--border-strong); border-radius: 6px;
   border: 2px solid transparent; background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.28); background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); background-clip: padding-box; }
 
 /* Sidebar + shell ---------------------------------------------------------
    The app is a fixed left rail plus a scrolling column. The rail is the
@@ -256,9 +295,9 @@ a { color: inherit; text-decoration: none; }
 .brand-mark {
   display: grid; place-items: center; flex: none;
   width: 32px; height: 32px; border-radius: var(--radius-sm);
-  /* The one place the purple is allowed out: pure decoration, no data. */
-  background: linear-gradient(213.03deg, var(--blue-400) 20%, var(--purple-400) 100%);
-  color: #fff;
+  /* Pure decoration, no data — the light plate from the palette. */
+  background: var(--brand-gradient);
+  color: var(--on-accent);
   font-size: 11px; font-weight: 800; letter-spacing: .02em;
   box-shadow: 0 4px 16px var(--accent-glow);
 }
@@ -297,7 +336,7 @@ a { color: inherit; text-decoration: none; }
 .side-link:hover { color: var(--text); background: rgba(255,255,255,.04); }
 .side-link.active { color: var(--text); background: var(--glass); font-weight: 600; }
 .side-link.active .side-icon {
-  background: var(--brand-gradient); color: #fff;
+  background: var(--brand-gradient); color: var(--on-accent);
   box-shadow: 0 4px 14px var(--accent-glow);
 }
 
@@ -408,13 +447,13 @@ a { color: inherit; text-decoration: none; }
   transition: background .14s var(--ease), border-color .14s var(--ease),
               transform .08s var(--ease);
 }
-.btn:hover { background: var(--surface-hover); border-color: rgba(255,255,255,.28); }
+.btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
 
-/* The one saturated fill in the app. The gradient deliberately stays in the
-   darker half of the blue so white label text clears contrast — the bright
-   --accent alone would not at this text size. */
+/* The one light fill in the app. On graphite the accent is lighter than the
+   text, so the label flips to --on-accent (the page dark) — white on this
+   plate would be unreadable. */
 .btn-primary {
   background: var(--brand-gradient);
   border-color: transparent; color: var(--on-accent); font-weight: 650;
@@ -423,8 +462,10 @@ a { color: inherit; text-decoration: none; }
 .btn-primary:hover { filter: brightness(1.12); border-color: transparent; }
 
 .btn-danger {
+  /* The red is light enough that white ink on it measures ~2.6:1 — the
+     page dark is the only legible ink here. */
   background: var(--danger); border-color: transparent;
-  color: #ffffff; font-weight: 650;
+  color: var(--on-accent); font-weight: 650;
 }
 .btn-danger:hover { filter: brightness(1.08); }
 
@@ -550,13 +591,14 @@ a { color: inherit; text-decoration: none; }
 }
 .chip-empty::before { display: none; }
 
-/* n — neutral: no state worth colouring (Idea, Lesson, Pitch). */
-.chip-n    { background: var(--surface-hover); color: var(--text-muted); }
-/* t1 / t2 — the two identity tones, blue then green, at low intensity. */
-/* t1 -> t3 is one ramp climbing in intensity, not three hues: quiet tint,
-   solid mid, then the sage itself with dark ink as the loudest step. */
-.chip-t1   { background: color-mix(in oklab, var(--f-600) 45%, transparent); color: var(--f-200); }
-.chip-t2   { background: var(--f-600); color: var(--f-050); }
+/* n — neutral: no state worth colouring (Idea, Lesson, Pitch). Sits at the
+   track step so it reads *below* t1 rather than beside it. */
+.chip-n    { background: var(--track); color: var(--text-muted); }
+/* n -> t1 -> t2 -> t3 is one grey ramp climbing in intensity, not a set of
+   hues: quiet tint, solid mid, then the light accent with page-dark ink as
+   the loudest step. Four rungs, each ≥ 3.5:1 for its own ink. */
+.chip-t1   { background: color-mix(in oklab, var(--f-500) 28%, transparent); color: var(--f-250); }
+.chip-t2   { background: var(--f-500); color: var(--f-050); }
 /* t3 — the loud one: a finished, good outcome (Posted, Viral, Fact). */
 .chip-t3   { background: var(--f-200); color: var(--f-900); }
 .chip-warn { background: color-mix(in oklab, var(--amber-900) 42%, transparent); color: var(--amber-200); }
@@ -603,9 +645,9 @@ a { color: inherit; text-decoration: none; }
    `.cell-select { background: transparent }` above, and setting only
    background-COLOR leaves the arrow (a background-image) intact — the
    shorthand used by the plain .chip-* rules would wipe it out. */
-.cell-select.chip-n     { background-color: var(--surface-hover); color: var(--text-muted); }
-.cell-select.chip-t1    { background-color: color-mix(in oklab, var(--f-600) 45%, transparent); color: var(--f-200); }
-.cell-select.chip-t2    { background-color: var(--f-600); color: var(--f-050); }
+.cell-select.chip-n     { background-color: var(--track); color: var(--text-muted); }
+.cell-select.chip-t1    { background-color: color-mix(in oklab, var(--f-500) 28%, transparent); color: var(--f-250); }
+.cell-select.chip-t2    { background-color: var(--f-500); color: var(--f-050); }
 .cell-select.chip-t3    { background-color: var(--f-200); color: var(--f-900); }
 .cell-select.chip-warn  { background-color: color-mix(in oklab, var(--amber-900) 42%, transparent); color: var(--amber-200); }
 .cell-select.chip-bad   { background-color: color-mix(in oklab, var(--red-900) 52%, transparent);   color: var(--red-200); }
@@ -772,8 +814,10 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .stat-icon {
   display: grid; place-items: center; flex: none;
   width: 42px; height: 42px; border-radius: var(--radius-sm);
-  background: var(--brand-gradient); color: #fff;
-  box-shadow: 0 4px 16px var(--accent-glow);
+  /* Grey theme: the tile is the palette's filled icon square — a mid plate
+     with a page-dark glyph, so it reads as an object, not as an accent. */
+  background: var(--icon-plate); color: var(--icon-fg);
+  box-shadow: none;
 }
 .stat-icon svg { width: 19px; height: 19px; }
 
@@ -813,10 +857,10 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   color: var(--text-muted); font-size: 12.5px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.bar-track { height: 13px; background: var(--surface-2); border-radius: 0 4px 4px 0; }
+.bar-track { height: 13px; background: var(--track); border-radius: 0 4px 4px 0; }
 .bar-fill {
   height: 100%; min-width: 2px;
-  background: var(--accent);
+  background: var(--fill);
   border-radius: 0 4px 4px 0;
   transition: width .35s var(--ease);
 }
@@ -834,7 +878,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .colchart .gridline { stroke: var(--border); stroke-width: 1; }
 .colchart .axis-label { fill: var(--text-faint); font-size: 10px; font-family: var(--mono); }
 .colchart .col-value { fill: var(--text-muted); font-size: 10px; font-weight: 650; }
-.colchart .col-bar { fill: var(--accent); transition: fill .13s var(--ease); }
+.colchart .col-bar { fill: var(--fill); transition: fill .13s var(--ease); }
 .colchart .col-bar:hover { fill: var(--accent-hover); }
 
 /* Line / spline / area charts share the column chart's chrome. The dot's
@@ -859,8 +903,8 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 
 /* Emphasis pair, not two categories: the banked half is the actionable one
    so it takes the accent, and the already-cut half recedes to grey. */
-.stack-seg.seg-banked { background: var(--accent); }
-.stack-seg.seg-cut    { background: #2f6053; }
+.stack-seg.seg-banked { background: var(--fill); }
+.stack-seg.seg-cut    { background: var(--fill-soft); }
 .chart-legend {
   display: flex; gap: 16px; justify-content: center;
   font-size: 12px; color: var(--text-muted); padding: 8px 0 2px;
@@ -870,8 +914,8 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .legend-dot.perf-viral   { background: var(--green-400); }
 .legend-dot.perf-average { background: var(--amber-400); }
 .legend-dot.perf-failed  { background: var(--red-400); }
-.legend-dot.seg-banked   { background: var(--accent); }
-.legend-dot.seg-cut      { background: #2f6053; }
+.legend-dot.seg-banked   { background: var(--fill); }
+.legend-dot.seg-cut      { background: var(--fill-soft); }
 
 /* Half-width pair below the three-card rows. */
 .dash-grid + .dash-grid { margin-top: 12px; }
@@ -910,8 +954,8 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .cal-grid > .cal-day:nth-child(7n):hover { background: var(--surface-2); }
 
 /* Days from the neighbouring month are context, not content. */
-.cal-day.other-month { background: rgba(3,18,18,.55); }
-.cal-day.other-month .cal-daynum { color: #2c4a41; }
+.cal-day.other-month { background: rgba(8, 10, 12, .55); }
+.cal-day.other-month .cal-daynum { color: var(--fill-soft); }
 .cal-day.other-month .cal-event { opacity: .55; }
 
 .cal-day.today {
@@ -1107,10 +1151,10 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 }
 .upload-name { font-size: 12.5px; margin-bottom: 8px; display: flex; gap: 9px; align-items: center; }
 .upload-pct { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
-.progress { height: 5px; background: var(--surface-hover); border-radius: 3px; overflow: hidden; }
+.progress { height: 5px; background: var(--track); border-radius: 3px; overflow: hidden; }
 .progress-bar {
   height: 100%; width: 0%; border-radius: 3px;
-  background: var(--accent);
+  background: var(--fill);
   transition: width .15s linear;
 }
 .progress-bar.done  { background: var(--success); }
@@ -1203,10 +1247,10 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .goal-input:hover  { border-color: var(--border); }
 .goal-input:focus  { outline: none; border-color: var(--accent); background: var(--surface-2); }
 .goal-pct { margin-left: auto; color: var(--text-muted); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.goal-track { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.goal-track { height: 10px; background: var(--track); border-radius: 5px; overflow: hidden; }
 .goal-fill {
   height: 100%; min-width: 0;
-  background: var(--accent); border-radius: 5px 0 0 5px;
+  background: var(--fill); border-radius: 5px 0 0 5px;
   transition: width .35s var(--ease);
 }
 
@@ -1330,7 +1374,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 /* ==========================================================================
    5. The glass skin   (LAST on purpose)
 
-   Every panel in the app is one material: translucent navy over a heavy
+   Every panel in the app is one material: translucent graphite over a heavy
    backdrop blur with a 1px white rim. This block comes last so it wins over
    the per-component `background` declarations above — those stay as the
    opaque fallback for browsers without backdrop-filter, and everything else
@@ -1362,13 +1406,13 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
    fill: these sit over content, not over the page gradient, so the card
    recipe's 49% stop would let the table underneath read straight through. */
 .dd-panel, .dialog, .preview, .toast {
-  background: linear-gradient(127.09deg, rgba(5, 31, 32, .98) 19.41%,
-                                          rgba(13, 48, 42, .97) 76.65%);
+  background: linear-gradient(127.09deg, rgba(16, 19, 21, .98) 19.41%,
+                                          rgba(25, 29, 33, .97) 76.65%);
   box-shadow: var(--shadow-lg);
 }
 
 /* Blur over a fixed background is the most expensive thing on the page; when
-   the machine asks for less, fall back to a flat navy fill. */
+   the machine asks for less, fall back to a flat graphite fill. */
 @media (prefers-reduced-motion: reduce) {
   .chart-card, .stat-tile, .table-wrap, .side-panel, .deadline-card,
   .media-item, .upload-row, .dd-panel, .dialog, .preview, .empty, .goal-card {

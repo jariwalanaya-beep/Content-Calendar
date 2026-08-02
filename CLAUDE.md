@@ -48,10 +48,11 @@ A select vocabulary lives in **three places that must stay in sync**:
 3. `.chip-<tone>` rules in [style.css](static/css/style.css) (two blocks:
    `.chip-*` and `.cell-select.chip-*`).
 
-The `color` field is a **tone name, not a hue**: `n` (neutral), `t1` (blue),
-`t2` (soft green), `t3` (strong green), `warn` (amber), `bad` (red). Six
-tones total — adding a vocabulary value means picking one of them, not
-inventing a colour.
+The `color` field is a **tone name, not a hue**. Four of the six are rungs of
+the grey ramp, quiet → loud: `n` (track fill), `t1` (tint), `t2` (solid mid),
+`t3` (light accent fill with page-dark ink); only `warn` (amber) and `bad`
+(red) are coloured. Six tones total — adding a vocabulary value means picking
+one of them, not inventing a colour.
 
 Current `ContentType`: Story, Celebrity, Theory, Decode, Fact, Lesson,
 Hypothetical, Debate, Pitch. `Performance`: Viral / Average / Failed.
@@ -91,64 +92,72 @@ There is **no footer element any more**; the disk/media readout moved into
 `.side-card` at the bottom of the rail, keeping the ids `#footer-disk` and
 `#footer-media` that app.js writes to.
 
-## Design language — "deep-space glass"
+## Design language — "graphite glass"
 
-Taken from the Vision-UI reference the user supplied (`first css Dashboard
-Screen.txt`, a Figma export). Four rules:
+The page is a near-black cool grey. Four rules:
 
-- The page is **navy**, painted once by `--page-bg` (a fixed diagonal
+- The page is **graphite**, painted once by `--page-bg` (a fixed diagonal
   gradient). Nothing else sets a page background.
-- **Every panel is one material**: `--glass` (translucent navy gradient) over
-  `backdrop-filter: blur(60px)` with a 1px white-at-8% rim. Applied by the
-  shared selector list in **section 5, which is last in the file on purpose**
-  so it beats the per-component `background` declarations — those remain the
-  opaque fallback. Add a new card by adding its class to that list.
+- **Every panel is one material**: `--glass` (translucent graphite gradient)
+  over `backdrop-filter: blur(60px)` with a 1px cool-white rim at ~9%.
+  Applied by the shared selector list in **section 5, which is last in the
+  file on purpose** so it beats the per-component `background` declarations —
+  those remain the opaque fallback. Add a new card by adding its class to
+  that list.
 - Radii are generous: 20px cards, 15px controls, 12px inner.
-- **Blue is the only interactive colour.** `--purple-400` is decoration only
-  (brand mark, gradients) — it measures 2.56:1 on the page and must never
-  carry data.
+- **The accent is a light grey (`--accent`, `#c3ccd4`), not a hue.** Because
+  it is grey it cannot carry "active" on its own — an accent-filled bar and a
+  normal bar would read the same — so it is confined to thin focus rings, the
+  active nav tile, and single-series chart marks. The **three status colours
+  carry every meaningful highlight**, and they are the only real colour on
+  the page, which is exactly why the amber "to upload" tile and the red
+  "failed" bars land as hard as they do.
+
+Anything filled with the accent takes `--on-accent` (`#0d0f11`, the page
+dark) as ink, never white.
 
 Floating surfaces (`.dd-panel`, `.dialog`, `.preview`, `.toast`) override the
 recipe with a near-opaque fill: they sit over *content*, and the card's 49%
 stop lets the table read straight through.
 
-## The forest ramp — why there are 9 steps, not 6
+## The graphite palette ([style.css](static/css/style.css) section 1)
 
-The user supplied six greens. Measured as an ordinal ramp they have two gaps
-that flatten a UI, so three steps were **derived** to fill them:
+The supplied palette is the **source of truth** at the top of `:root`, under
+its own names (`--panel`, `--nested`, `--track`, `--fill`, `--icon-bg`,
+`--good`/`--warn-c`/`--bad`…). Everything below it — the `--f-*` ramp, the
+surface/text/accent aliases, the glass gradients — is an alias or a mix of
+those values, so a re-theme is one block.
 
-| gap in the supplied set | ΔL | consequence |
-|---|---|---|
-| `#051F20 → #0B2B26` | .044 | too close to read as two layers (floor ≈ .06) |
-| `#0B2B26 → #163832` | .049 | same |
-| `#235347 → #8EB69B` | **.334** | a canyon — no mid-tone exists at all |
+Note the two-name collisions kept deliberately: the palette's `--bg` is
+`--graphite-bg` (the semantic `--bg` still points at it), its `--border` /
+`--border-2` are `--border-1` / `--border-2` (feeding `--border` and
+`--border-strong`), and its `--warn` is `--warn-c` (the semantic `--warn`
+still points at it). Borders use the `#bec8d217` 8-digit form — the last two
+digits are alpha, so that is `rgba(190,200,210,.09)`.
 
-The canyon is the expensive one: with nothing in the mids there is no
-readable "quiet" colour, so the sage ends up doing *both* muted text and
-accent — which is exactly what drains an accent of meaning. `--f-400`
-(`#6E9B85`, 4.8:1 on a panel) fixes that, and **`--text-muted` is `--f-400`,
-never the sage.**
+The `--f-*` ramp is the palette laid out as one ordinal ladder, floor
+(`--f-950`) → ink (`--f-050`), so chip tones and surface layers index into it
+by position. Only `--f-600` (`#272d33`, hover/active fill) is derived: it has
+to sit clearly above the track or hover reads as nothing.
 
-Surfaces also **skip a rung**: the floor goes straight to `--f-800` for cards
-(ΔL .105) rather than stepping through `--f-900` (ΔL .044, invisible). Two
-adjacent ramp steps do not make two readable layers.
+Surfaces skip a rung where two steps would be invisibly close — page →
+chrome → card, then inputs/tracks cut back *down* to `--f-650` so a field
+reads as a hole in the card rather than another card.
 
-Measured relationships worth preserving: page→card ΔL .105 · muted text
-4.8:1 · faint 3.2:1 · dark ink on sage 8.6:1.
+Text is three rungs and no more: `--text` `#e6eaee`, `--text-muted`
+`#a3adb5`, `--text-faint` `#6b757d`. Nothing quieter carries a word the user
+has to read.
 
-## Colour system ([style.css](static/css/style.css) section 1)
+Chip tones are four rungs of the same grey ladder, not four hues:
+`n` (track fill) → `t1` (tint) → `t2` (`--fill-soft` solid) → `t3` (the light
+accent with page-dark ink), plus `warn` and `bad` which are the only coloured
+chips.
 
-Every hue is a four-step ramp — 50 / 200 / 400 / 900. On this dark theme the
-roles invert from light-theme habit: **the 900 step is the fill and the 200
-step is the ink on it**. That one rule generates every chip, due badge and
-tag. Blue = interactive accent, green = good, amber = attention, red =
-failed.
-
-⚠ **Chart fills use `--chart-good/warn/bad`, not the ramp 400s.** The
-brights (`#01b574` / `#f6ad55`) are correct as small marks and text but sit
-above the safe lightness band as large areas, and that pair loses CVD
-separation. The `--chart-*` trio is validated against the navy surface;
-legend dots and text keep the brights. Don't retune either casually.
+⚠ **`--good` `#57c98a` / `--warn-c` `#e8b05a` / `--bad` `#e2707f` are fixed
+across any theme** and are the only saturated colour in the app. `--chart-*`
+are simply aliases of them — on graphite nothing competes with them, so no
+separate large-area trio is needed. Never use them decoratively, and never
+add a fourth.
 
 ## Deadlines view ([deadlines.js](static/js/views/deadlines.js))
 
@@ -214,8 +223,9 @@ Card builders, all fed by the one `/api/content` list:
   editable without new filming. Built on `barCard`.
 - `perfStackCard` — Performance by type: one stacked horizontal bar per
   type (Viral|Average|Failed segments), sorted by rated-video count, legend
-  below. Status colours `#2fa568` / `#b98d18` / `#bd3454` are
-  CVD-validated against the dark surface — don't swap them casually.
+  below. Segments use the fixed status trio `--chart-good/warn/bad`
+  (`#57c98a` / `#e8b05a` / `#e2707f`) — the only colour on a grey page, so
+  don't swap them casually.
 - `columnCard` — vertical columns (uploads per week histogram).
 - `lineCard` — line/area/spline; renders an explanatory empty state until
   it has ≥ 2 points (a lone dot reads as broken).
