@@ -86,16 +86,29 @@ async function route() {
   // than silently dumping the user in the library.
   if (name !== 'content') state.returnTo = location.hash || '#/library';
 
-  // Highlight the current view in the top bar. The detail page belongs to
-  // whichever list it was opened from, so that tab stays lit while editing.
+  // Highlight the current view in the sidebar. The detail page belongs to
+  // whichever list it was opened from, so that item stays lit while editing.
   const cameFrom = (state.returnTo || '').split('/')[2];
   const active = name === 'weekly' ? 'weekly'
     : name === 'money' ? 'money'
     : name === 'content'
       ? (LIBRARY_RENDERERS[cameFrom] ? cameFrom : 'table')
     : (LIBRARY_RENDERERS[parts[1]] ? parts[1] : 'table');
-  document.querySelectorAll('.section-link').forEach(a =>
+  document.querySelectorAll('.side-link').forEach(a =>
     a.classList.toggle('active', a.dataset.route === active));
+
+  // Breadcrumb + page title mirror the sidebar selection, so the header always
+  // names the thing on screen — including "Entry" while a detail page is open.
+  const TITLES = {
+    table: 'Library', deadlines: 'Deadlines', calendar: 'Calendar',
+    month: 'This Month', dashboard: 'Dashboard', weekly: 'Weekly', money: 'Money',
+  };
+  const here = name === 'content' ? 'Entry' : (TITLES[active] || 'Library');
+  document.getElementById('crumb-here').textContent = here;
+  document.getElementById('crumb-title').textContent = here;
+  document.title = `${here} · Content Hub`;
+  // A tap on a nav item closes the drawer on narrow screens.
+  document.getElementById('sidebar').classList.remove('is-open');
 
   clear(root);
 
@@ -163,6 +176,11 @@ function wireTopBar() {
     if (e.key === 'Escape' && e.target === search) {
       search.value = ''; state.search = ''; search.blur(); route();
     }
+  });
+
+  // Narrow screens collapse the sidebar to a drawer; this is its handle.
+  document.getElementById('side-toggle').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('is-open');
   });
 
   document.getElementById('new-entry').addEventListener('click', async () => {

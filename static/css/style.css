@@ -2,95 +2,196 @@
    Content Hub — stylesheet  (dark only)
 
    Sections
+     0. Fonts           self-hosted, no CDN
      1. Tokens          ramps, colours, spacing, type — restyle from here
      2. Base + layout
      3. Components      buttons, chips, inputs, toasts, dialog
      4. Views           table, deadlines, calendar, detail, weekly
 
+   DESIGN LANGUAGE — forest glass
+   The rules, applied everywhere and not negotiable per-component:
+
+     · The page is deep FOREST GREEN. One fixed diagonal gradient runs under
+       everything; nothing else paints the page background.
+     · A panel is a pane of glass: a translucent forest gradient over a heavy
+       backdrop blur, with a 1px white-at-8% rim. Never a flat block. The rim
+       is what separates panels — shadows stay almost invisible.
+     · Corners are generous: 20px on cards, 15px on controls, 12px inside.
+     · Chrome text is small, uppercase and wide-tracked; numbers are set in
+       the mono so columns line up.
+     · The sage --f-200 is the only interactive colour, and it is LIGHT on a
+       dark page — so anything filled with it takes --f-900 as ink, never
+       white.
+
    COLOUR SYSTEM
-   Every hue is a four-step ramp: 50 (near-white), 200 (light), 400 (pure),
-   900 (deep). On a dark surface the roles invert from the usual light-theme
-   habit — the DEEP step is the fill and the LIGHT step is the ink sitting on
-   it. That one rule produces every chip, badge and tag in the app:
+   The whole interface is ONE six-step ramp, --f-900 (page floor) up to
+   --f-050 (near-white ink). Chips get their weight from how far up that ramp
+   they sit rather than from a second hue:
 
-       background: <hue>-900 (softened)      color: <hue>-200
+       t1  quiet tint     t2  solid mid      t3  sage with dark ink
 
-   Blue is the interactive accent (links, buttons, focus, single-series
-   charts). Green means good — Posted, Viral, money coming in. Amber means
-   in-progress or attention. Red means failed or overdue. Tone names in
-   ui.js (`t1`/`t2`/`t3`/`warn`/`bad`/`n`) map onto these ramps, so changing
-   a ramp here restyles every chip at once.
+   Tone names in ui.js (`t1`/`t2`/`t3`/`warn`/`bad`/`n`) map onto that, so
+   editing the six steps restyles every chip at once.
+
+   ⚠ AMBER and RED are the only non-green colours in the app, and they are
+   reserved as data: a monochrome palette physically cannot say "failed" or
+   "overdue". Never use them decoratively, and never add a third.
+
+   ⚠ Chart FILLS use --chart-* rather than any ramp step — large areas need
+   their own validated trio. `--chart-bad` was lifted to #cf4462 because the
+   old red measured only 2.73:1 against this greener page.
    ========================================================================== */
+
+/* --- 0. Fonts ------------------------------------------------------------ */
+/* Self-hosted rather than pulled from a CDN: this app is a local tool that
+   has to look right with no network.
+   Both files are VARIABLE fonts (Inter wght 100–900, JetBrains Mono
+   400–800), so one @font-face per family covers every weight — the other
+   five files in static/fonts/ are byte-identical copies and unused. */
+@font-face {
+  font-family: 'Inter'; font-style: normal; font-weight: 100 900;
+  font-display: swap;
+  src: url('/static/fonts/Inter-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400 800;
+  font-display: swap;
+  src: url('/static/fonts/JetBrainsMono-400.woff2') format('woff2');
+}
 
 /* --- 1. Tokens ----------------------------------------------------------- */
 :root {
   color-scheme: dark;
 
-  /* Ramps ---------------------------------------------------------------- */
-  --blue-50:   #e3f2fd;
-  --blue-200:  #90caf9;
-  --blue-400:  #2196f3;
-  --blue-900:  #0d47a1;
+  /* THE FOREST RAMP
+     The six supplied steps (marked ·) plus three derived ones. The additions
+     are not decoration — they were measured. The supplied set has two
+     structural gaps that make a UI look flat:
 
-  --green-50:  #e8f5e9;
-  --green-200: #a5d6a7;
-  --green-400: #66bb6a;
-  --green-900: #1b5e20;
+       #051F20→#0B2B26  ΔL 0.044   ┐ too close to read as separate
+       #0B2B26→#163832  ΔL 0.049   ┘ layers (an ordinal step wants ≥0.06)
+       #235347→#8EB69B  ΔL 0.334   ← a canyon: nothing lives in the mids
 
-  /* Amber and red follow the same 50/200/400/900 shape so the whole set
-     reads as one family rather than four unrelated colours. */
-  --amber-50:  #fff8e1;
-  --amber-200: #ffcc80;
-  --amber-400: #ffa726;
-  --amber-900: #e65100;
+     The canyon is the expensive one. With no mid-tone there is no readable
+     "quiet" colour, so the sage ends up doing muted text AND accent — which
+     is precisely what drains an accent of meaning. --f-400 fills it at
+     4.8:1 on a panel, so the sage can go back to being rare.
 
-  --red-50:    #ffebee;
-  --red-200:   #ef9a9a;
-  --red-400:   #ef5350;
-  --red-900:   #b71c1c;
+     step        L      role                                    */
+  --f-950: #03100f;  /* .159   page floor (derived)             */
+  --f-900: #051f20;  /* .220 · panels                           */
+  --f-800: #0b2b26;  /* .264 · raised panels                    */
+  --f-700: #163832;  /* .313 · dividers, chart tracks           */
+  --f-650: #194138;  /* .344   inputs (derived, ΔL .080 on card)*/
+  --f-600: #235347;  /* .405 · hover, active fill               */
+  --f-500: #4f7d68;  /* .550   dividers, faint text (derived)   */
+  --f-400: #6e9b85;  /* .650   secondary text (derived)         */
+  --f-200: #8eb69b;  /* .739 · SAGE — the accent, used sparingly */
+  --f-050: #daf1de;  /* .936 · primary ink                      */
 
-  /* Greys: a cool near-black, layered so panels read as raised, not outlined.
-     Tinted very slightly toward blue so they sit with the accent. */
-  --bg:            #0a0c0f;
-  --bg-elevated:   #0f1216;
-  --surface:       #13171c;
-  --surface-2:     #1a1f26;
-  --surface-hover: #222831;
-  --border:        #1f252d;
-  --border-strong: #2c343e;
+  /* The green "hue" ramp is the forest itself: chips get their intensity
+     from how far up the ramp they sit, not from a different colour. */
+  --green-50:  var(--f-050);
+  --green-200: var(--f-200);
+  --green-400: #4e8f6d;
+  --green-900: var(--f-600);
 
-  --text:          #e8eef2;
-  --text-muted:    #93a0ad;
-  --text-faint:    #64707d;
+  /* Amber and red are the ONLY non-green colours left, and they are reserved:
+     a monochrome palette cannot say "failed" or "overdue", so these stay as
+     data-only signals and are never used decoratively. */
+  --amber-50:  #fff6e9;
+  --amber-200: #f6ad55;
+  --amber-400: #ed8936;
+  --amber-900: #4a2e10;
 
-  /* Accent = blue 400. Everything interactive derives from it. */
-  --accent:        var(--blue-400);
-  --accent-hover:  #64b5f6;
-  --accent-dim:    #1976d2;
-  --accent-deep:   var(--blue-900);
-  --accent-glow:   rgba(33, 150, 243, .20);
-  --accent-faint:  rgba(33, 150, 243, .10);
-  /* Ink that sits ON a saturated accent fill — near-black, not white. */
-  --on-accent:     #04121f;
+  --red-50:    #ffecec;
+  --red-200:   #ff9b93;
+  --red-400:   #e5556e;
+  --red-900:   #4a1214;
+
+  /* Kept so the two `blue-*` references left in the sheet resolve; both now
+     point at the forest so nothing paints blue. */
+  --blue-50:   var(--f-050);
+  --blue-200:  var(--f-200);
+  --blue-400:  var(--f-200);
+  --blue-900:  var(--f-600);
+  --purple-400: #2f6d5c;
+  --teal-300:   var(--f-200);
+
+  /* Surfaces. The opaque values are the fallback for anywhere the glass
+     gradient cannot be used (inputs, tracks, inner fills). */
+  /* 60 / 30 / 10, and the page is the darkest thing on screen.
+     Note the SKIPPED rung: the floor jumps straight to --f-800 for panels
+     (ΔL .105) instead of stepping through --f-900 (ΔL .044, invisible). Two
+     adjacent ramp steps do not make two readable layers — that was why the
+     cards blended into the page. --f-900 still earns its keep as the
+     sidebar/topbar base, which sits *between* floor and card. */
+  --bg:            var(--f-950);   /* .159 — darkest, 60% of the screen */
+  --bg-elevated:   var(--f-900);   /* .220 — chrome                     */
+  --surface:       var(--f-800);   /* .264 — cards                      */
+  --surface-2:     var(--f-650);   /* .344 — inputs, tracks             */
+  --surface-hover: var(--f-600);   /* .405 — hover, active              */
+  /* Borders are light-on-dark rims, not darker lines — that rim is what
+     makes a pane read as glass rather than as a hole. */
+  --border:        rgba(142, 182, 155, .16);
+  --border-strong: rgba(142, 182, 155, .30);
+
+  /* Secondary text is --f-400, NOT the sage. This is the single change that
+     gives the accent its meaning back: when every muted label is sage, sage
+     stops signalling "interactive". */
+  --text:          var(--f-050);
+  --text-muted:    var(--f-400);   /* 4.8:1 on a panel */
+  --text-faint:    var(--f-500);   /* 3.2:1 — labels, captions, disabled */
+
+  /* Sage is the interactive colour. It is LIGHT on a dark page, so anything
+     filled with it takes the darkest step as ink, not white. */
+  --accent:        var(--f-200);
+  --accent-hover:  #a6c9b1;
+  --accent-dim:    #4e8f6d;
+  --accent-deep:   var(--f-600);
+  --accent-glow:   rgba(142, 182, 155, .26);
+  --accent-faint:  rgba(142, 182, 155, .11);
+  --on-accent:     var(--f-900);
 
   --danger:        var(--red-400);
-  --warn:          var(--amber-400);
+  --warn:          var(--amber-200);
   --success:       var(--green-400);
 
-  --radius-sm: 7px;
-  --radius:    9px;
-  --radius-lg: 14px;
+  /* The glass recipe. --glass is the card, --glass-2 the quieter inner pane,
+     --page-bg the one gradient under the whole app. */
+  /* Same geometry as the reference's gradients, re-derived on the forest. */
+  --page-bg: linear-gradient(159.02deg, #06191a 14.25%, #041413 56.45%, #03100f 86.14%);
+  --glass:   linear-gradient(127.09deg, rgba(11, 43, 38, .97) 19.41%, rgba(22, 56, 50, .70) 76.65%);
+  --glass-2: linear-gradient(126.97deg, rgba(5, 31, 32, .86) 28.26%, rgba(11, 43, 38, .80) 91.2%);
+  --glass-blur: blur(60px);
+  /* Runs up the ramp, so the dark ink on it clears contrast at both ends. */
+  --brand-gradient: linear-gradient(213.03deg, #6fa587 36.66%, #8eb69b 77.75%);
 
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.45);
-  --shadow:    0 2px 6px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.45);
-  --shadow-lg: 0 14px 36px rgba(0,0,0,.6), 0 4px 12px rgba(0,0,0,.45);
+  /* Chart fills. The ramp 400s are tuned to be bright as ink; as large areas
+     they sit above the safe lightness band and the green/amber pair loses
+     CVD separation. These three are validated against --bg-elevated. */
+  --chart-good: #2fa568;
+  --chart-warn: #b98d18;
+  /* Lifted from #bd3454: on the green page that step fell to 2.73:1. */
+  --chart-bad:  #cf4462;
 
-  --topbar-h: 56px;
+  --radius-sm: 12px;
+  --radius:    15px;
+  --radius-lg: 20px;
+
+  /* Glass separates with its rim, so shadows stay almost subliminal; only
+     things floating above the page (menus, dialogs) get a real one. */
+  --shadow-sm: 0 3.5px 5.5px rgba(0, 0, 0, .02);
+  --shadow:    0 8px 24px rgba(0, 0, 0, .28);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, .5);
+
+  --topbar-h: 60px;
   --ease: cubic-bezier(.4, 0, .2, 1);
 
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo,
+          Consolas, monospace;
 }
 
 /* --- 2. Base + layout ---------------------------------------------------- */
@@ -106,14 +207,14 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-/* A single wide accent bloom behind the top-left corner: it stops the page
-   reading as a flat black rectangle without tinting any actual content. */
+/* One fixed diagonal gradient under the entire app. Nothing else paints the
+   page: every panel above is translucent and lets this show through, which is
+   what makes the glass read as glass. */
 body {
-  padding-bottom: 34px;
-  background:
-    radial-gradient(1200px 420px at 18% -10%, var(--accent-faint), transparent 70%),
-    var(--bg);
+  /* No fixed footer any more — the disk readout moved into the sidebar. */
+  background: var(--page-bg), var(--bg);
   background-attachment: fixed;
+  min-height: 100vh;
 }
 a { color: inherit; text-decoration: none; }
 
@@ -125,68 +226,155 @@ a { color: inherit; text-decoration: none; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong); border-radius: 6px;
-  border: 2px solid var(--bg);
+  border: 2px solid transparent; background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover { background: #3a4450; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.28); background-clip: padding-box; }
 
-/* Top bar ----------------------------------------------------------------- */
-.topbar {
-  position: sticky; top: 0; z-index: 50;
-  display: flex; align-items: center; gap: 24px;
-  height: var(--topbar-h);
-  padding: 0 22px;
-  background: rgba(10,12,15,.86);
-  backdrop-filter: blur(14px) saturate(150%);
+/* Sidebar + shell ---------------------------------------------------------
+   The app is a fixed left rail plus a scrolling column. The rail is the
+   primary navigation (the reference's signature), so the top row is freed up
+   for the breadcrumb and search rather than carrying seven tabs. */
+:root { --side-w: 232px; }
+
+.sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0; z-index: 60;
+  width: var(--side-w);
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 22px 16px 16px;
+  background: var(--glass-2);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-right: 1px solid var(--border);
+}
+
+.side-brand {
+  display: flex; align-items: center; gap: 11px;
+  padding: 0 6px 18px;
+  margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
 }
-
-.brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark {
-  display: grid; place-items: center;
-  width: 26px; height: 26px; border-radius: 7px;
-  background: var(--accent);
-  color: var(--on-accent);
+  display: grid; place-items: center; flex: none;
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  /* The one place the purple is allowed out: pure decoration, no data. */
+  background: linear-gradient(213.03deg, var(--blue-400) 20%, var(--purple-400) 100%);
+  color: #fff;
   font-size: 11px; font-weight: 800; letter-spacing: .02em;
-  box-shadow: 0 2px 12px var(--accent-glow);
+  box-shadow: 0 4px 16px var(--accent-glow);
 }
 .brand-name {
-  font-weight: 650; font-size: 12.5px;
-  letter-spacing: .09em; text-transform: uppercase;
+  font-weight: 700; font-size: 12px;
+  letter-spacing: .12em; text-transform: uppercase;
   white-space: nowrap;
 }
 
-/* min-width + overflow keep the seven links usable on narrow windows: the nav
-   scrolls sideways instead of pushing the search box off screen. */
-.section-nav { display: flex; gap: 2px; min-width: 0; overflow-x: auto; }
-.section-link {
-  position: relative;
-  padding: 6px 12px; border-radius: var(--radius-sm);
-  color: var(--text-muted); font-weight: 500; font-size: 13px;
-  white-space: nowrap; transition: color .15s var(--ease), background .15s var(--ease);
+.side-nav { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; }
+.side-section {
+  padding: 16px 10px 6px;
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-faint);
 }
-.section-link:hover { background: var(--surface-2); color: var(--text); }
-.section-link.active { background: var(--accent-faint); color: var(--accent-hover); }
+
+/* A nav row is an icon tile + a label. The tile is what carries the active
+   state — it fills with the brand gradient — so the row reads as selected
+   even at a glance, without relying on the text colour alone. */
+.side-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px; border-radius: var(--radius-sm);
+  color: var(--text-muted); font-size: 13.5px; font-weight: 500;
+  white-space: nowrap;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+.side-icon {
+  display: grid; place-items: center; flex: none;
+  width: 30px; height: 30px; border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  transition: background .15s var(--ease), color .15s var(--ease),
+              box-shadow .15s var(--ease);
+}
+.side-icon svg { width: 16px; height: 16px; }
+.side-link:hover { color: var(--text); background: rgba(255,255,255,.04); }
+.side-link.active { color: var(--text); background: var(--glass); font-weight: 600; }
+.side-link.active .side-icon {
+  background: var(--brand-gradient); color: #fff;
+  box-shadow: 0 4px 14px var(--accent-glow);
+}
+
+/* Disk readout, parked at the bottom of the rail where the reference puts
+   its help card. */
+.side-card {
+  margin-top: auto;
+  padding: 14px; border-radius: var(--radius-sm);
+  background: var(--glass); border: 1px solid var(--border);
+}
+.side-card-label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.side-card-value {
+  margin-top: 5px; font-size: 12.5px; font-weight: 600;
+  font-family: var(--mono); color: var(--text);
+}
+.side-card-sub {
+  margin-top: 4px; font-size: 10px; font-family: var(--mono);
+  color: var(--text-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* The column right of the rail. */
+.shell { margin-left: var(--side-w); min-height: 100vh; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: 20px;
+  min-height: var(--topbar-h);
+  padding: 14px 26px;
+  background: var(--glass-2);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.side-toggle {
+  display: none; place-items: center;
+  width: 34px; height: 34px; flex: none;
+  background: var(--surface-2); color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.crumbs { min-width: 0; }
+.crumb-path {
+  font-size: 11px; color: var(--text-faint); font-family: var(--mono);
+  white-space: nowrap;
+}
+.crumb-path b { color: var(--text-muted); font-weight: 500; }
+.crumb-title {
+  margin-top: 3px;
+  font-size: 15px; font-weight: 650; letter-spacing: -.01em; color: var(--text);
+  white-space: nowrap;
+}
 
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 
 .search-wrap { position: relative; display: flex; align-items: center; }
-.search-icon { position: absolute; left: 11px; color: var(--text-faint); pointer-events: none; }
+.search-icon { position: absolute; left: 13px; color: var(--text-faint); pointer-events: none; }
 #search {
-  width: 250px; padding: 7px 12px 7px 32px;
-  background: var(--surface);
-  border: 1px solid var(--border); border-radius: var(--radius);
+  width: 230px; padding: 9px 12px 9px 34px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border); border-radius: 999px;
   color: var(--text); font: inherit; font-size: 13px;
   transition: border-color .15s var(--ease), box-shadow .15s var(--ease), width .2s var(--ease);
 }
 #search::placeholder { color: var(--text-faint); }
 #search:focus {
-  outline: none; width: 300px;
+  outline: none; width: 280px;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 #search::-webkit-search-cancel-button { cursor: pointer; filter: invert(.6); }
 
-.view { padding: 28px 26px 64px; max-width: 1520px; margin: 0 auto; }
+.view { padding: 8px 26px 56px; max-width: 1600px; }
 /* Views fade up as the router swaps them, so navigation feels placed, not
    flashed. Cheap: only animates the freshly inserted nodes. */
 #view > * { animation: viewin .22s var(--ease) both; }
@@ -195,17 +383,17 @@ a { color: inherit; text-decoration: none; }
   to   { opacity: 1; transform: none; }
 }
 
-/* Footer ------------------------------------------------------------------ */
-.footer {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
-  display: flex; gap: 18px; align-items: center;
-  padding: 7px 20px;
-  background: rgba(10,12,15,.92);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid var(--border);
-  color: var(--text-faint); font-size: 11px; font-family: var(--mono);
+/* Under 1100px the rail becomes a drawer over the content. */
+@media (max-width: 1100px) {
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform .22s var(--ease);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.is-open { transform: none; }
+  .shell { margin-left: 0; }
+  .side-toggle { display: grid; }
 }
-#footer-disk { margin-left: auto; }
 
 /* --- 3. Components ------------------------------------------------------- */
 
@@ -220,22 +408,23 @@ a { color: inherit; text-decoration: none; }
   transition: background .14s var(--ease), border-color .14s var(--ease),
               transform .08s var(--ease);
 }
-.btn:hover { background: var(--surface-hover); border-color: #3a4450; }
+.btn:hover { background: var(--surface-hover); border-color: rgba(255,255,255,.28); }
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
 
-/* The one saturated fill in the app: solid accent with near-black ink, which
-   holds contrast far better than white-on-blue at this size. */
+/* The one saturated fill in the app. The gradient deliberately stays in the
+   darker half of the blue so white label text clears contrast — the bright
+   --accent alone would not at this text size. */
 .btn-primary {
-  background: var(--accent);
+  background: var(--brand-gradient);
   border-color: transparent; color: var(--on-accent); font-weight: 650;
-  box-shadow: 0 2px 14px var(--accent-glow);
+  box-shadow: 0 4px 18px var(--accent-glow);
 }
-.btn-primary:hover { background: var(--accent-hover); border-color: transparent; }
+.btn-primary:hover { filter: brightness(1.12); border-color: transparent; }
 
 .btn-danger {
   background: var(--danger); border-color: transparent;
-  color: #2a0806; font-weight: 650;
+  color: #ffffff; font-weight: 650;
 }
 .btn-danger:hover { filter: brightness(1.08); }
 
@@ -364,10 +553,12 @@ a { color: inherit; text-decoration: none; }
 /* n — neutral: no state worth colouring (Idea, Lesson, Pitch). */
 .chip-n    { background: var(--surface-hover); color: var(--text-muted); }
 /* t1 / t2 — the two identity tones, blue then green, at low intensity. */
-.chip-t1   { background: color-mix(in oklab, var(--blue-900) 52%, transparent);  color: var(--blue-200); }
-.chip-t2   { background: color-mix(in oklab, var(--green-900) 58%, transparent); color: var(--green-200); }
+/* t1 -> t3 is one ramp climbing in intensity, not three hues: quiet tint,
+   solid mid, then the sage itself with dark ink as the loudest step. */
+.chip-t1   { background: color-mix(in oklab, var(--f-600) 45%, transparent); color: var(--f-200); }
+.chip-t2   { background: var(--f-600); color: var(--f-050); }
 /* t3 — the loud one: a finished, good outcome (Posted, Viral, Fact). */
-.chip-t3   { background: var(--green-900); color: var(--green-50); }
+.chip-t3   { background: var(--f-200); color: var(--f-900); }
 .chip-warn { background: color-mix(in oklab, var(--amber-900) 42%, transparent); color: var(--amber-200); }
 .chip-bad  { background: color-mix(in oklab, var(--red-900) 52%, transparent);   color: var(--red-200); }
 .chip-empty  { background: transparent; color: var(--text-faint); font-weight: 400; }
@@ -413,9 +604,9 @@ a { color: inherit; text-decoration: none; }
    background-COLOR leaves the arrow (a background-image) intact — the
    shorthand used by the plain .chip-* rules would wipe it out. */
 .cell-select.chip-n     { background-color: var(--surface-hover); color: var(--text-muted); }
-.cell-select.chip-t1    { background-color: color-mix(in oklab, var(--blue-900) 52%, transparent);  color: var(--blue-200); }
-.cell-select.chip-t2    { background-color: color-mix(in oklab, var(--green-900) 58%, transparent); color: var(--green-200); }
-.cell-select.chip-t3    { background-color: var(--green-900); color: var(--green-50); }
+.cell-select.chip-t1    { background-color: color-mix(in oklab, var(--f-600) 45%, transparent); color: var(--f-200); }
+.cell-select.chip-t2    { background-color: var(--f-600); color: var(--f-050); }
+.cell-select.chip-t3    { background-color: var(--f-200); color: var(--f-900); }
 .cell-select.chip-warn  { background-color: color-mix(in oklab, var(--amber-900) 42%, transparent); color: var(--amber-200); }
 .cell-select.chip-bad   { background-color: color-mix(in oklab, var(--red-900) 52%, transparent);   color: var(--red-200); }
 .cell-select.chip-empty { background-color: transparent; color: var(--text-faint); font-weight: 400; }
@@ -544,7 +735,8 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   gap: 12px; margin-bottom: 18px;
 }
 .stat-tile {
-  padding: 17px 18px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 18px;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
   transition: border-color .15s var(--ease), transform .15s var(--ease);
@@ -553,19 +745,37 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 /* A tile that drills into the library says so on hover. */
 .stat-link { cursor: pointer; }
 .stat-link:hover { border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+.stat-body { min-width: 0; flex: 1; }
+.stat-label {
+  color: var(--text-faint); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Value and its note share a baseline so the note reads as an annotation on
+   the number rather than a second line of its own. */
+.stat-figure { display: flex; align-items: baseline; gap: 7px; margin-top: 6px; }
 /* Proportional figures: equal-width digits look loose at display sizes. */
 .stat-value {
-  font-size: 31px; font-weight: 780; letter-spacing: -.035em;
-  line-height: 1.05;
+  font-size: 26px; font-weight: 750; letter-spacing: -.035em;
+  line-height: 1.05; color: var(--text);
+}
+.stat-note {
+  font-size: 11px; font-weight: 600; color: var(--text-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .stat-danger { color: var(--danger); }
 /* Work that is finished and waiting on you — attention, not alarm. */
-.stat-ready { color: var(--amber-400); }
-.stat-label {
-  margin-top: 5px;
-  color: var(--text-faint); font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .09em;
+.stat-ready { color: var(--amber-200); }
+
+/* The icon tile: the reference's most recognisable component. */
+.stat-icon {
+  display: grid; place-items: center; flex: none;
+  width: 42px; height: 42px; border-radius: var(--radius-sm);
+  background: var(--brand-gradient); color: #fff;
+  box-shadow: 0 4px 16px var(--accent-glow);
 }
+.stat-icon svg { width: 19px; height: 19px; }
 
 /* Two rows of three equal cards. Cards in a row stretch to the same height,
    so the grid always reads as tidy rows — no masonry holes. */
@@ -631,7 +841,9 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
    surface-colored stroke is the 2px ring separating it from the line. */
 .linechart .line-stroke { fill: none; stroke: var(--accent); stroke-width: 2; }
 .linechart .zeroline { stroke: var(--border-strong); }
-.linechart .area-fill { fill: var(--accent); opacity: .14; }
+.linechart { color: var(--accent); }
+/* fill comes from the inline gradient, which reads currentColor above. */
+.linechart .area-fill { opacity: 1; }
 .line-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 
 /* Performance stack — Viral | Average | Failed segments inside the shared
@@ -641,14 +853,14 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .stack-fill { display: flex; gap: 2px; height: 100%; }
 .stack-seg { min-width: 4px; }
 .stack-seg:last-child { border-radius: 0 4px 4px 0; }
-.stack-seg.perf-viral   { background: var(--green-400); }
-.stack-seg.perf-average { background: var(--amber-400); }
-.stack-seg.perf-failed  { background: var(--red-400); }
+.stack-seg.perf-viral   { background: var(--chart-good); }
+.stack-seg.perf-average { background: var(--chart-warn); }
+.stack-seg.perf-failed  { background: var(--chart-bad); }
 
 /* Emphasis pair, not two categories: the banked half is the actionable one
    so it takes the accent, and the already-cut half recedes to grey. */
 .stack-seg.seg-banked { background: var(--accent); }
-.stack-seg.seg-cut    { background: #46525f; }
+.stack-seg.seg-cut    { background: #2f6053; }
 .chart-legend {
   display: flex; gap: 16px; justify-content: center;
   font-size: 12px; color: var(--text-muted); padding: 8px 0 2px;
@@ -659,7 +871,7 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .legend-dot.perf-average { background: var(--amber-400); }
 .legend-dot.perf-failed  { background: var(--red-400); }
 .legend-dot.seg-banked   { background: var(--accent); }
-.legend-dot.seg-cut      { background: #46525f; }
+.legend-dot.seg-cut      { background: #2f6053; }
 
 /* Half-width pair below the three-card rows. */
 .dash-grid + .dash-grid { margin-top: 12px; }
@@ -698,8 +910,8 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
 .cal-grid > .cal-day:nth-child(7n):hover { background: var(--surface-2); }
 
 /* Days from the neighbouring month are context, not content. */
-.cal-day.other-month { background: #0d1014; }
-.cal-day.other-month .cal-daynum { color: #333c47; }
+.cal-day.other-month { background: rgba(3,18,18,.55); }
+.cal-day.other-month .cal-daynum { color: #2c4a41; }
 .cal-day.other-month .cal-event { opacity: .55; }
 
 .cal-day.today {
@@ -1114,3 +1326,53 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
    hover. */
 .deadline-actions { text-align: right; white-space: nowrap; padding-right: 12px !important; }
 .deadline-actions .btn { opacity: 1; }
+
+/* ==========================================================================
+   5. The glass skin   (LAST on purpose)
+
+   Every panel in the app is one material: translucent navy over a heavy
+   backdrop blur with a 1px white rim. This block comes last so it wins over
+   the per-component `background` declarations above — those stay as the
+   opaque fallback for browsers without backdrop-filter, and everything else
+   in each component rule (padding, layout, hover) is left untouched.
+
+   box-shadow is deliberately NOT set here: the rim does the separating, and
+   the floating surfaces below keep their own deeper shadow.
+   ========================================================================== */
+.chart-card,
+.stat-tile,
+.table-wrap,
+.side-panel,
+.deadline-card,
+.media-item,
+.upload-row,
+.dd-panel,
+.dialog,
+.preview,
+.empty,
+.goal-card {
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+/* Anything that floats above the page needs real depth AND a near-opaque
+   fill: these sit over content, not over the page gradient, so the card
+   recipe's 49% stop would let the table underneath read straight through. */
+.dd-panel, .dialog, .preview, .toast {
+  background: linear-gradient(127.09deg, rgba(5, 31, 32, .98) 19.41%,
+                                          rgba(13, 48, 42, .97) 76.65%);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Blur over a fixed background is the most expensive thing on the page; when
+   the machine asks for less, fall back to a flat navy fill. */
+@media (prefers-reduced-motion: reduce) {
+  .chart-card, .stat-tile, .table-wrap, .side-panel, .deadline-card,
+  .media-item, .upload-row, .dd-panel, .dialog, .preview, .empty, .goal-card {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    background: var(--bg-elevated);
+  }
+}

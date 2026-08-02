@@ -75,17 +75,80 @@ it the open panel paints *behind* the table below it.
 Inline table cells still use `selectCell()` (a real `<select>`): there the
 popup is a brief native interaction on a chip, not a designed surface.
 
+## App shell (index.html)
+
+**Fixed left sidebar (`.sidebar`, 232px) + scrolling `.shell`.** The sidebar
+is the primary nav — seven `.side-link` rows, each an icon tile plus a label,
+with `data-route` matching the keys of `LIBRARY_RENDERERS`. The active state
+lives on the **icon tile** (it fills with the brand gradient), set by the
+router in [app.js](static/js/app.js).
+
+The top row carries a **breadcrumb over a page title** (`#crumb-here`,
+`#crumb-title`, both written by the router) plus search and + New — not tabs.
+Under 1100px the sidebar becomes a drawer toggled by `#side-toggle`.
+
+There is **no footer element any more**; the disk/media readout moved into
+`.side-card` at the bottom of the rail, keeping the ids `#footer-disk` and
+`#footer-media` that app.js writes to.
+
+## Design language — "deep-space glass"
+
+Taken from the Vision-UI reference the user supplied (`first css Dashboard
+Screen.txt`, a Figma export). Four rules:
+
+- The page is **navy**, painted once by `--page-bg` (a fixed diagonal
+  gradient). Nothing else sets a page background.
+- **Every panel is one material**: `--glass` (translucent navy gradient) over
+  `backdrop-filter: blur(60px)` with a 1px white-at-8% rim. Applied by the
+  shared selector list in **section 5, which is last in the file on purpose**
+  so it beats the per-component `background` declarations — those remain the
+  opaque fallback. Add a new card by adding its class to that list.
+- Radii are generous: 20px cards, 15px controls, 12px inner.
+- **Blue is the only interactive colour.** `--purple-400` is decoration only
+  (brand mark, gradients) — it measures 2.56:1 on the page and must never
+  carry data.
+
+Floating surfaces (`.dd-panel`, `.dialog`, `.preview`, `.toast`) override the
+recipe with a near-opaque fill: they sit over *content*, and the card's 49%
+stop lets the table read straight through.
+
+## The forest ramp — why there are 9 steps, not 6
+
+The user supplied six greens. Measured as an ordinal ramp they have two gaps
+that flatten a UI, so three steps were **derived** to fill them:
+
+| gap in the supplied set | ΔL | consequence |
+|---|---|---|
+| `#051F20 → #0B2B26` | .044 | too close to read as two layers (floor ≈ .06) |
+| `#0B2B26 → #163832` | .049 | same |
+| `#235347 → #8EB69B` | **.334** | a canyon — no mid-tone exists at all |
+
+The canyon is the expensive one: with nothing in the mids there is no
+readable "quiet" colour, so the sage ends up doing *both* muted text and
+accent — which is exactly what drains an accent of meaning. `--f-400`
+(`#6E9B85`, 4.8:1 on a panel) fixes that, and **`--text-muted` is `--f-400`,
+never the sage.**
+
+Surfaces also **skip a rung**: the floor goes straight to `--f-800` for cards
+(ΔL .105) rather than stepping through `--f-900` (ΔL .044, invisible). Two
+adjacent ramp steps do not make two readable layers.
+
+Measured relationships worth preserving: page→card ΔL .105 · muted text
+4.8:1 · faint 3.2:1 · dark ink on sage 8.6:1.
+
 ## Colour system ([style.css](static/css/style.css) section 1)
 
 Every hue is a four-step ramp — 50 / 200 / 400 / 900. On this dark theme the
 roles invert from light-theme habit: **the 900 step is the fill and the 200
 step is the ink on it**. That one rule generates every chip, due badge and
-tag. Blue = interactive accent (also single-series chart marks), green =
-good, amber = attention, red = failed.
+tag. Blue = interactive accent, green = good, amber = attention, red =
+failed.
 
-The 400 steps are the only place three hues sit side by side (the
-performance stack, the status edge bars), so they must stay
-distinguishable — don't retune them casually.
+⚠ **Chart fills use `--chart-good/warn/bad`, not the ramp 400s.** The
+brights (`#01b574` / `#f6ad55`) are correct as small marks and text but sit
+above the safe lightness band as large areas, and that pair loses CVD
+separation. The `--chart-*` trio is validated against the navy surface;
+legend dots and text keep the brights. Don't retune either casually.
 
 ## Deadlines view ([deadlines.js](static/js/views/deadlines.js))
 

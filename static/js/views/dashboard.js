@@ -33,6 +33,24 @@ function svg(tag, attrs = {}, ...children) {
   return node;
 }
 
+/**
+ * Stat-tile icons. Inline SVG paths rather than an icon font or emoji: they
+ * inherit currentColor, stay crisp on the gradient tile, and cost no request.
+ */
+const ico = (...d) => () => svg('svg', {
+  viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2,
+  'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+}, d.map(p => svg('path', { d: p })));
+
+const ICONS = {
+  stack:  ico('M12 3l9 5-9 5-9-5 9-5', 'M3 13l9 5 9-5', 'M3 17l9 5 9-5'),
+  send:   ico('M22 2L11 13', 'M22 2l-7 20-4-9-9-4 20-7z'),
+  check:  ico('M20 6L9 17l-5-5'),
+  clock:  ico('M12 21a9 9 0 100-18 9 9 0 000 18z', 'M12 7v5l3 2'),
+  upload: ico('M12 19V5', 'M5 12l7-7 7 7'),
+  film:   ico('M3 5h18v14H3z', 'M7 5v14M17 5v14M3 12h18'),
+};
+
 /** Count items by a key function, keeping `keys` order when given. */
 function countBy(items, keyFn, keys) {
   const counts = {};
@@ -51,7 +69,7 @@ function countBy(items, keyFn, keys) {
  * narrowed to that media filter, so a number you care about is one click from
  * the list behind it.
  */
-function statTile(label, value, tone, mediaFilter) {
+function statTile(label, value, tone, mediaFilter, icon, note) {
   return el('div', {
     class: `stat-tile${mediaFilter ? ' stat-link' : ''}`,
     title: mediaFilter ? 'Show these in the library' : null,
@@ -63,9 +81,19 @@ function statTile(label, value, tone, mediaFilter) {
         }
       : null,
   },
-    el('div', { class: `stat-value${tone ? ` stat-${tone}` : ''}` }, String(value)),
-    el('div', { class: 'stat-label' }, label));
+    el('div', { class: 'stat-body' },
+      el('div', { class: 'stat-label' }, label),
+      el('div', { class: 'stat-figure' },
+        el('span', { class: `stat-value${tone ? ` stat-${tone}` : ''}` }, String(value)),
+        // The share-of-total line, the reference's "+55%" slot. It says what
+        // the number means rather than repeating it.
+        note ? el('span', { class: `stat-note${tone ? ` stat-${tone}` : ''}` }, note) : null)),
+    // Icon tile on the right, filled with the brand gradient.
+    icon ? el('div', { class: 'stat-icon' }, icon()) : null);
 }
+
+/** Percentage of `total`, as the "+12%" style note the stat tiles carry. */
+const share = (n, total) => (total ? `${Math.round((n / total) * 100)}% of all` : '');
 
 /**
  * A titled card holding one horizontal bar chart (label | bar | count).
@@ -176,8 +204,16 @@ function lineCard(title, counts, { wide = false, smooth = false, area = false,
   const path = smooth ? splinePath(pts, padT, base)
                       : 'M' + pts.map(p => `${p.x},${p.y}`).join(' L');
   if (area && pts.length > 1) {
+    // Vertical accent-to-transparent wash under the curve. The gradient needs
+    // a document-unique id, otherwise a second chart on the page would reuse
+    // the first one's definition.
+    const gid = `areafade-${Math.random().toString(36).slice(2, 9)}`;
+    chart.append(svg('defs', {},
+      svg('linearGradient', { id: gid, x1: '0', y1: '0', x2: '0', y2: '1' },
+        svg('stop', { offset: '0%',   'stop-color': 'currentColor', 'stop-opacity': '.45' }),
+        svg('stop', { offset: '100%', 'stop-color': 'currentColor', 'stop-opacity': '0' }))));
     chart.append(svg('path', {
-      class: 'area-fill',
+      class: 'area-fill', fill: `url(#${gid})`,
       d: `${path} L${pts[pts.length - 1].x},${base} L${pts[0].x},${base} Z`,
     }));
   }
@@ -422,15 +458,16 @@ export async function renderDashboard(root, state) {
   const toUpload = items.filter(i =>
     i.final_count > 0 && i.status !== 'Posted').length;
 
+  const n = items.length;
   root.append(el('div', { class: 'stat-row' },
-    statTile('Videos', items.length),
-    statTile('Posted', posted),
-    statTile('Edits done', done),
-    statTile(overdue ? '⚠ Overdue' : 'Overdue', overdue,
-             overdue ? 'danger' : null),
-    statTile(toUpload ? '⬆ To upload' : 'To upload', toUpload,
-             toUpload ? 'ready' : null, 'unposted'),
-    statTile('With files', withMedia)));
+    statTile('Videos', n, null, null, ICONS.stack),
+    statTile('Posted', posted, null, null, ICONS.send, share(posted, n)),
+    statTile('Edits done', done, null, null, ICONS.check, share(done, n)),
+    statTile('Overdue', overdue, overdue ? 'danger' : null, null, ICONS.clock,
+             overdue ? 'needs chasing' : 'all on time'),
+    statTile('To upload', toUpload, toUpload ? 'ready' : null, 'unposted',
+             ICONS.upload, toUpload ? 'cut, not posted' : 'nothing waiting'),
+    statTile('With files', withMedia, null, null, ICONS.film, share(withMedia, n))));
 
   const byStatus = countBy(items, i => i.status, STATUSES.map(s => s.value));
   const monthCounts = fillMonthRange(countBy(items, i =>
@@ -451,9 +488,9 @@ export async function renderDashboard(root, state) {
     perfStackCard('Performance by type', items,
       { empty: 'Rate posted videos (Viral / Average / Failed) and give them a type — the chart draws itself' }),
     lineCard('Videos per month', monthCounts,
-      { empty: 'No uploads dated yet' })));
+      { smooth: true, area: true, empty: 'No uploads dated yet' })));
 
   root.append(lineCard('Channel momentum — Viral climbs, Failed drops', momentum(items),
-    { wide: true, smooth: true, zeroOk: true,
+    { wide: true, smooth: true, area: true, zeroOk: true,
       empty: 'Rate posted videos (Viral / Average / Failed) and momentum charts itself' }));
 }
