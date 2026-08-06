@@ -69,9 +69,25 @@ const LIBRARY_RENDERERS = {
 // "Untitled" husk in the library.
 let openDetailId = null;
 
-async function route() {
+/**
+ * Render the route in the address bar.
+ *
+ * `inPlace` is what an inline save passes. A save is not navigation: the user
+ * is looking at a row halfway down the page and expects to still be looking
+ * at it afterwards. Two things otherwise move the page under them —
+ *
+ *   · clear(root) empties the view while the refetch is still in flight, so
+ *     the document collapses to nothing and the browser clamps scroll to 0;
+ *   · the #view entry animation replays, sliding every card up 6px again.
+ *
+ * so this captures the scroll offset up front, suppresses the animation for
+ * that render, and puts the offset back once the DOM is rebuilt.
+ */
+async function route({ inPlace = false } = {}) {
   const { parts, name } = parseHash();
   const root = viewRoot();
+  const keepY = inPlace ? window.scrollY : 0;
+  root.classList.toggle('no-anim', inPlace);
 
   // Leaving a detail page? Clean up first, so the view rendered below
   // (which may list entries) never shows the row being discarded.
@@ -115,21 +131,14 @@ async function route() {
   try {
     if (name === 'weekly') {
       await renderWeekly(root);
-      return;
-    }
-
-    if (name === 'money') {
+    } else if (name === 'money') {
       await renderMoney(root);
-      return;
-    }
-
-    if (name === 'content' && parts[1]) {
+    } else if (name === 'content' && parts[1]) {
       await renderDetail(root, Number(parts[1]));
-      return;
+    } else {
+      const render = LIBRARY_RENDERERS[parts[1] || 'table'] || renderTable;
+      await render(root, state);
     }
-
-    const render = LIBRARY_RENDERERS[parts[1] || 'table'] || renderTable;
-    await render(root, state);
   } catch (err) {
     console.error(err);
     clear(root);
@@ -138,10 +147,21 @@ async function route() {
       el('div', {}, 'Something went wrong'),
       el('div', { style: 'font-size:12px;margin-top:6px' }, err.message)));
   }
+
+  if (inPlace && keepY) {
+    // Twice on purpose: once now, and once after the browser has laid the
+    // rebuilt page out, because the first call cannot scroll further than
+    // the height the document has at that instant.
+    window.scrollTo(0, keepY);
+    requestAnimationFrame(() => window.scrollTo(0, keepY));
+  }
 }
 
-/** Re-render the current route; used after a mutation changes the data. */
-export function refresh() { route(); }
+/**
+ * Re-render after a mutation. Keeps the scroll position and skips the entry
+ * animation — an inline edit is not navigation, so the page must not move.
+ */
+export function refresh() { return route({ inPlace: true }); }
 
 /* --- Top bar ------------------------------------------------------------- */
 

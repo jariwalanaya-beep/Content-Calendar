@@ -236,6 +236,52 @@ with TestClient(main.app) as client:
     check("bad direction rejected",
           client.post("/api/money", json={"direction": "Sideways"}).status_code == 422)
 
+    # Saving rides alongside the ledger and must never reach the arithmetic:
+    # `signed` stays the amount with its direction applied, nothing else.
+    check("saving defaults to 0",
+          all(m["saving"] == 0 for m in client.get("/api/money").json()))
+    r = client.patch(f"/api/money/{money_id}", json={"saving": 5000})
+    check("saving patches", r.json()["saving"] == 5000, r.text)
+    check("saving does not move signed", r.json()["signed"] == 60000)
+    r = client.post("/api/money", json={"entry": "Set aside", "amount": 0,
+                                        "saving": 20000, "direction": "Expense"})
+    check("saving on create, still unsigned",
+          r.status_code == 201 and r.json()["saving"] == 20000
+          and r.json()["signed"] == 0, r.text)
+    client.delete(f"/api/money/{r.json()['id']}")
+    check("negative saving rejected",
+          client.post("/api/money", json={"saving": -1}).status_code == 422)
+
+    # Bucket / category / recurring classify a row. The API only stores and
+    # filters on them — the client owns every figure derived from them — so
+    # what is tested here is that they round-trip and that the classification
+    # never leaks into `signed`.
+    check("bucket defaults to Business",
+          all(m["bucket"] == "Business" for m in client.get("/api/money").json()))
+    r = client.post("/api/money", json={"entry": "Set aside — Aug", "amount": 6000,
+                                        "direction": "Expense", "bucket": "Savings",
+                                        "category": "Set aside"})
+    aside_id = r.json()["id"]
+    check("savings row round-trips",
+          r.status_code == 201 and r.json()["bucket"] == "Savings"
+          and r.json()["category"] == "Set aside", r.text)
+    check("bucket does not change signed", r.json()["signed"] == -6000)
+    check("bucket filter", len(client.get("/api/money?bucket=Savings").json()) == 1)
+    check("category filter",
+          len(client.get("/api/money?category=Set+aside").json()) == 1)
+    check("bad bucket rejected",
+          client.post("/api/money", json={"bucket": "Slush"}).status_code == 422)
+    check("bad category rejected",
+          client.post("/api/money", json={"category": "Vibes"}).status_code == 422)
+
+    check("recurring defaults false",
+          client.get(f"/api/money").json()[0]["recurring"] is False)
+    r = client.patch(f"/api/money/{aside_id}", json={"recurring": True})
+    check("recurring patches", r.json()["recurring"] is True, r.text)
+    r = client.patch(f"/api/money/{aside_id}", json={"category": ""})
+    check("category clears to null", r.json()["category"] is None, r.text)
+    client.delete(f"/api/money/{aside_id}")
+
     check("goal default", client.get("/api/money/goal").json()["goal"] == 350000)
     client.put("/api/money/goal", json={"goal": 500000})
     check("goal saved", client.get("/api/money/goal").json()["goal"] == 500000)

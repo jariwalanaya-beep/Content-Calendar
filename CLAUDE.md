@@ -169,6 +169,52 @@ the finished cut straight to that entry's `final` media bucket (via
 row. The button label carries the existing final-video count
 (`⬆ Final · 2`). Done only sets `done = 1` — it never deletes anything.
 
+## Money ledger ([money.js](static/js/views/money.js), [money.py](routers/money.py))
+
+One table of Income/Expense rows read as a **business**, not as a list.
+Amount is always positive; `direction` signs it into `signed`. Three columns
+classify a row, and every figure on the page falls out of that
+classification:
+
+| column | values | what it decides |
+|---|---|---|
+| `bucket` | Business / Personal / Savings | **only Business reaches revenue, cost, net, margin** |
+| `category` | `MoneyCategory` in [models.py](models.py) | every breakdown, and cost-per-video |
+| `recurring` | bool | the Fixed monthly costs rollup |
+
+**The production pair is `Editor fee` + `Clipper fee`.** They scale with how
+much you post, so they alone divide into cost-per-video; every other expense
+is *overhead*, owed whether you post or not. `net = revenue − production −
+overhead`, over Business rows only.
+
+⚠ The API stores and filters these three columns and **owns none of the
+definitions** — revenue, production, overhead, margin, cost-per-video, I owe
+/ owed to me are all derived in `metrics()` in
+[money.js](static/js/views/money.js). Change a rule there, once.
+
+⚠ **Personal and Savings rows are held out of the business arithmetic**, and
+`saving` stays outside it too: no ledger total picks it up, the sum row's
+Saving cell is deliberately blank, and it never folds into `signed`. Booking
+either as a Business expense was the old workaround and it wrongly dragged
+Net down. Picking the `Set aside` or `Personal` category **re-files the row's
+bucket automatically** (`CATEGORY_BUCKET`) so that mistake cannot be made by
+hand. The Saved and Personal tiles are toned to `--text-muted`
+(`.stat-aside-v`) — a figure that feeds no other total should not compete
+with one that does.
+
+The goal bar tracks **either** all-time Net profit **or** all-time Saved,
+switched by the two `.goal-mode` buttons; they answer different questions, so
+the bar names the one it is showing.
+
+Charts spend the colour budget deliberately: revenue `--good`, the production
+pair `--bad`, and **overhead is grey** (`--fill-soft`) — a third hue there
+would spend the whole page's colour on a legend. The spend donut is *ranked*,
+so it shades down the grey ramp (`.donut-0` … `.donut-5`) rather than taking
+six hues.
+
+CSV export writes the filtered slice; **import ADDS rows and never clears the
+ledger** — a bad file should cost an undo, not the history.
+
 ## Library filters & the detail stepper
 
 `state.filters` in [app.js](static/js/app.js) is the single filter object the

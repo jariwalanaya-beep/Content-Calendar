@@ -4,6 +4,16 @@ Money ledger CRUD plus the savings goal.
 One table of income/expense entries; the client derives every total from the
 list, so the API stays a plain ledger. The goal lives in app_setting so it
 survives restarts and can be edited from the UI.
+
+Each row also carries a `saving` figure. It is stored and returned like any
+other field but is NOT part of the ledger arithmetic — `signed` ignores it,
+so no total the client derives can pick it up.
+
+Three columns classify a row rather than measure it: `bucket` (Business /
+Personal / Savings), `category` and `recurring`. The API only stores and
+filters on them — every derived figure (revenue, production cost, overhead,
+margin, cost-per-video) is computed client-side from the returned list, which
+keeps this router a plain ledger and the definitions in one place.
 """
 
 from datetime import date
@@ -12,7 +22,8 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from database import db_dependency, utc_now_iso
-from models import Direction, MoneyCreate, MoneyEntry, MoneyGoal, MoneyUpdate
+from models import (Bucket, Direction, MoneyCreate, MoneyEntry, MoneyGoal,
+                    MoneyUpdate)
 
 router = APIRouter(prefix="/money", tags=["money"])
 
@@ -26,10 +37,16 @@ def _row_to_entry(row: sqlite3.Row) -> MoneyEntry:
         id=row["id"],
         entry=row["entry"],
         amount=row["amount"],
+        # Note `signed` below is built from amount alone: saving is tracked
+        # beside the ledger, never inside its arithmetic.
+        saving=row["saving"],
         date=row["date"],
         direction=row["direction"],
         party=row["party"],
         paid=row["paid"],
+        bucket=row["bucket"] or Bucket.BUSINESS.value,
+        category=row["category"] or None,
+        recurring=bool(row["recurring"]),
         signed=signed,
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -66,6 +83,9 @@ def list_money(
     month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$",
                               description="Filter by date month, 'YYYY-MM'"),
     direction: str | None = Query(None, description="Income or Expense"),
+    bucket: str | None = Query(None, description="Business, Personal, Savings"),
+    category: str | None = Query(None, description="One MoneyCategory value"),
+    paid: str | None = Query(None, description="Paid or Unpaid"),
     conn: sqlite3.Connection = Depends(db_dependency),
 ) -> list[MoneyEntry]:
     """All ledger entries, newest first; undated entries sink to the bottom."""
@@ -77,6 +97,15 @@ def list_money(
     if direction:
         where.append("direction = ?")
         params.append(direction)
+    if bucket:
+        where.append("bucket = ?")
+        params.append(bucket)
+    if category:
+        where.append("category = ?")
+        params.append(category)
+    if paid:
+        where.append("paid = ?")
+        params.append(paid)
 
     sql = "SELECT * FROM money"
     if where:
@@ -92,16 +121,21 @@ def create_money(
 ) -> MoneyEntry:
     now = utc_now_iso()
     cur = conn.execute(
-        """INSERT INTO money (entry, amount, date, direction, party, paid,
+        """INSERT INTO money (entry, amount, saving, date, direction, party,
+                              paid, bucket, category, recurring,
                               created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             payload.entry,
             payload.amount,
+            payload.saving,
             payload.date.isoformat() if payload.date else None,
             payload.direction.value,
             payload.party,
             payload.paid,
+            payload.bucket.value,
+            payload.category.value if payload.category else "",
+            int(payload.recurring),
             now, now,
         ),
     )
@@ -130,6 +164,11 @@ def update_money(
                 value = value.value
             elif isinstance(value, date):
                 value = value.isoformat()
+            elif isinstance(value, bool):
+                value = int(value)
+            # category is NOT NULL in the schema; clearing it stores ''.
+            if key == "category" and value is None:
+                value = ""
             assignments.append(f"{key} = ?")
             params.append(value)
         assignments.append("updated_at = ?")

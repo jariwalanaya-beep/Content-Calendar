@@ -173,11 +173,57 @@ class ContentUpdate(BaseModel):
 # Money ledger
 # --------------------------------------------------------------------------- #
 
+class Bucket(str, Enum):
+    """Which pot a row belongs to.
+
+    Only BUSINESS reaches revenue, cost, net and margin. PERSONAL and SAVINGS
+    are still recorded and still shown, but they are held out of the business
+    arithmetic — personal spending is not a cost of making videos, and money
+    moved aside is not money spent.
+    """
+    BUSINESS = "Business"
+    PERSONAL = "Personal"
+    SAVINGS = "Savings"
+
+
+class MoneyCategory(str, Enum):
+    """What the money was. This is what every breakdown groups by.
+
+    Two of these — EDITOR_FEE and CLIPPER_FEE — are the *production* pair:
+    they scale with how much you post, and they are the only ones that feed
+    cost-per-video. Everything else on the expense side is overhead, which
+    the channel owes whether it posts or not.
+    """
+    # Income
+    CONTENT_PAYOUT = "Content payout"
+    BRAND_DEAL = "Brand deal"
+    AFFILIATE = "Affiliate"
+    OTHER_INCOME = "Other income"
+    # Expense
+    EDITOR_FEE = "Editor fee"
+    CLIPPER_FEE = "Clipper fee"
+    TOOLS = "Tools & subs"
+    VERIFICATION = "Verification"
+    ADS = "Ads / boost"
+    PERSONAL = "Personal"
+    SET_ASIDE = "Set aside"
+    OTHER_EXPENSE = "Other expense"
+
+
+# The two categories that scale with output. Cost-per-video divides by these
+# and nothing else, so a month of tool renewals cannot inflate it.
+PRODUCTION_CATEGORIES = {MoneyCategory.EDITOR_FEE, MoneyCategory.CLIPPER_FEE}
+
+
 class MoneyCreate(BaseModel):
     """Payload for one ledger entry. Amount is always positive — the
     direction decides the sign."""
     entry: str = Field(default="", max_length=500)
     amount: float = Field(default=0, ge=0)
+    # Money set aside on this entry. Reported and edited like any other
+    # figure, but it never enters income, expense, net or the goal — saving
+    # is not spending, so it must not read as a cost.
+    saving: float = Field(default=0, ge=0)
     # Annotated via the module alias: a field literally named `date` would
     # otherwise shadow the `date` type inside this class body.
     date: _dt.date | None = None
@@ -185,8 +231,13 @@ class MoneyCreate(BaseModel):
     party: str = Field(default="", max_length=200)
     # Paid/Unpaid only applies where money is owed (editor fees); None = n/a.
     paid: Literal["Paid", "Unpaid"] | None = None
+    bucket: Bucket = Bucket.BUSINESS
+    # Blank is allowed: a half-filled row must still save. The client offers
+    # only the categories that match the row's direction.
+    category: MoneyCategory | None = None
+    recurring: bool = False
 
-    @field_validator("date", "paid", mode="before")
+    @field_validator("date", "paid", "category", mode="before")
     @classmethod
     def _empty_string_is_null(cls, v):
         return None if v == "" else v
@@ -196,12 +247,16 @@ class MoneyUpdate(BaseModel):
     """Partial update; same absent-vs-null semantics as ContentUpdate."""
     entry: str | None = Field(default=None, max_length=500)
     amount: float | None = Field(default=None, ge=0)
+    saving: float | None = Field(default=None, ge=0)
     date: _dt.date | None = None
     direction: Direction | None = None
     party: str | None = Field(default=None, max_length=200)
     paid: Literal["Paid", "Unpaid"] | None = None
+    bucket: Bucket | None = None
+    category: MoneyCategory | None = None
+    recurring: bool | None = None
 
-    @field_validator("date", "paid", mode="before")
+    @field_validator("date", "paid", "category", mode="before")
     @classmethod
     def _empty_string_is_null(cls, v):
         return None if v == "" else v
@@ -213,10 +268,14 @@ class MoneyEntry(BaseModel):
     id: int
     entry: str
     amount: float
+    saving: float
     date: str | None
     direction: Direction
     party: str
     paid: str | None
+    bucket: Bucket
+    category: MoneyCategory | None
+    recurring: bool
     signed: float
     created_at: str
     updated_at: str

@@ -16,7 +16,7 @@ import sqlite3
 from config import settings
 
 # Bump this when you change the schema, and add the matching migration below.
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 11
 
 # Monday-first, matching the weekly template layout.
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday",
@@ -164,10 +164,18 @@ CREATE TABLE IF NOT EXISTS money (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     entry      TEXT NOT NULL DEFAULT '',       -- what the money was for
     amount     REAL NOT NULL DEFAULT 0,        -- always positive; direction signs it
+    saving     REAL NOT NULL DEFAULT 0,        -- set aside; NEVER enters a total
     date       TEXT,                           -- ISO 'YYYY-MM-DD'
     direction  TEXT NOT NULL DEFAULT 'Expense',-- Income | Expense
     party      TEXT NOT NULL DEFAULT '',       -- platform / person
     paid       TEXT,                           -- Paid | Unpaid | NULL (n/a)
+    -- Which pot the row belongs to. Only Business rows reach revenue, cost
+    -- and net; Personal and Savings are carried but held out of them.
+    bucket     TEXT NOT NULL DEFAULT 'Business',-- Business | Personal | Savings
+    -- What kind of money it is. Drives the spend breakdown and, for the two
+    -- production categories, cost-per-video.
+    category   TEXT NOT NULL DEFAULT '',        -- see MoneyCategory in models.py
+    recurring  INTEGER NOT NULL DEFAULT 0,      -- 1 = repeats every month
     content_id INTEGER,                        -- the video an editor fee belongs to
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -315,6 +323,45 @@ def _migrate(conn: sqlite3.Connection) -> None:
                  (row["done_at"] or now)[:10],
                  row["assigned_to"].strip(), row["id"], now, now),
             )
+
+    # v9 -> v10: a per-entry "saving" figure. It is deliberately OUTSIDE the
+    # income/expense arithmetic — money set aside is not a cost, so it must
+    # not move net, the sum row or the goal bar. Defaulting to 0 keeps every
+    # existing row's totals byte-identical.
+    if current < 10:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(money)")}
+        if "saving" not in cols:
+            conn.execute(
+                "ALTER TABLE money ADD COLUMN saving REAL NOT NULL DEFAULT 0")
+
+    # v10 -> v11: the ledger stops being one flat list of income and expense.
+    # Three columns turn it into a business P&L:
+    #   bucket    — Business / Personal / Savings, so personal spending and
+    #               money moved aside stop counting as cost of doing business.
+    #   category  — what the money was, which is what every breakdown groups by.
+    #   recurring — a cost that repeats whether you post or not.
+    # Existing rows are classified from what they already say, so the totals
+    # they produced before this migration are the totals they produce after.
+    if current < 11:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(money)")}
+        if "bucket" not in cols:
+            conn.execute("ALTER TABLE money ADD COLUMN "
+                         "bucket TEXT NOT NULL DEFAULT 'Business'")
+        if "category" not in cols:
+            conn.execute("ALTER TABLE money ADD COLUMN "
+                         "category TEXT NOT NULL DEFAULT ''")
+        if "recurring" not in cols:
+            conn.execute("ALTER TABLE money ADD COLUMN "
+                         "recurring INTEGER NOT NULL DEFAULT 0")
+        # Backfill only what is still blank, so a re-run cannot overwrite a
+        # category the user has since set by hand.
+        conn.execute(
+            """UPDATE money SET category = CASE
+                   WHEN entry LIKE 'Editor fee%'  THEN 'Editor fee'
+                   WHEN entry LIKE 'Clipper fee%' THEN 'Clipper fee'
+                   WHEN direction = 'Income'      THEN 'Content payout'
+                   ELSE 'Other expense' END
+               WHERE TRIM(COALESCE(category, '')) = ''""")
 
     conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 

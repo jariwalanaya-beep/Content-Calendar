@@ -413,7 +413,12 @@ a { color: inherit; text-decoration: none; }
 }
 #search::-webkit-search-cancel-button { cursor: pointer; filter: invert(.6); }
 
-.view { padding: 8px 26px 56px; max-width: 1600px; }
+/* The cap keeps a readable measure on a wide screen, but it must be CENTRED:
+   left-aligned, every pixel over the cap collects on the right and the page
+   reads as if it slid sideways. margin-inline:auto splits it, so the gutters
+   stay equal and match the topbar's 26px until the window really is wider
+   than the cap. */
+.view { padding: 8px 26px 56px; max-width: 1760px; margin-inline: auto; }
 /* Views fade up as the router swaps them, so navigation feels placed, not
    flashed. Cheap: only animates the freshly inserted nodes. */
 #view > * { animation: viewin .22s var(--ease) both; }
@@ -421,6 +426,10 @@ a { color: inherit; text-decoration: none; }
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
+/* An inline save re-renders the view in place (see refresh() in app.js). That
+   is not navigation, so it must not animate: replaying the fade-up on every
+   edited cell reads as the page flinching under the cursor. */
+#view.no-anim > * { animation: none; }
 
 /* Under 1100px the rail becomes a drawer over the content. */
 @media (max-width: 1100px) {
@@ -1254,8 +1263,33 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   transition: width .35s var(--ease);
 }
 
-.money-stats { grid-template-columns: repeat(4, 1fr); }
+.money-stats { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 1180px) {
+  .money-stats { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 760px) {
+  .money-stats { grid-template-columns: repeat(2, 1fr); }
+}
+/* Money tiles stack three lines, so the label sits under the number and the
+   note under that — the note is what stops "Overhead" needing a glossary. */
+.money-stats .stat-tile { display: block; }
+.money-stats .stat-value { margin-bottom: 5px; }
+.money-stats .stat-note { display: block; margin-top: 4px; }
+/* Set-aside and personal are readouts parked beside the totals, not totals
+   themselves, so their numbers take the same muted rung as the Saving
+   column. The rim is left alone on purpose — every panel is one material
+   (section 5), and a dashed tile would break that to say what the label
+   already says. */
+.stat-aside .stat-value,
+.stat-value.stat-aside-v { color: var(--text-muted); }
 .money-amount { min-width: 110px; }
+/* Twelve columns: let it scroll rather than crushing the entry text. */
+.money-grid { min-width: 1180px; }
+/* Saving sits outside the ledger's arithmetic, so it is toned down a rung:
+   an amount that never reaches a total should not compete with one that
+   does. Focus restores full ink so editing never feels disabled. */
+.money-saving .cell-input { color: var(--text-muted); }
+.money-saving .cell-input:focus { color: var(--text); }
 .money-signed {
   font-variant-numeric: tabular-nums; font-weight: 650;
   text-align: right; padding-right: 14px; white-space: nowrap;
@@ -1266,6 +1300,103 @@ table.grid tbody tr:hover .row-actions .btn { opacity: 1; }
   text-transform: uppercase; letter-spacing: .05em;
 }
 .money-sum-row .money-signed { font-size: 14px; text-transform: none; }
+
+/* Recurring is a yes/no, so it is a toggle on a chip rather than a select. */
+.chip-toggle { border: 0; cursor: pointer; font: inherit; font-size: 12px;
+               font-weight: 600; }
+.chip-toggle.chip-empty { border: 1px dashed var(--border-strong); }
+
+/* Which figure the goal bar tracks. Two words, so two small buttons rather
+   than a control: the lit one takes the accent fill and page-dark ink. */
+.goal-modes { display: inline-flex; gap: 4px; margin-left: 4px; }
+.goal-mode {
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text-muted); font: inherit; font-size: 11.5px; font-weight: 600;
+  padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.goal-mode:hover { color: var(--text); border-color: var(--border-strong); }
+.goal-mode.is-on { background: var(--accent); color: var(--on-accent);
+                   border-color: transparent; }
+
+/* A heading over a band of cards, so the page reads as sections rather than
+   as one long wall of panels. */
+.section-head {
+  display: flex; align-items: baseline; gap: 12px;
+  margin: 30px 0 13px;
+}
+.section-head h2 { font-size: 15px; font-weight: 650; margin: 0;
+                   letter-spacing: -.01em; }
+.section-head span { font-size: 12px; color: var(--text-faint); }
+
+/* --- Money charts --------------------------------------------------------- *
+   Three fills carry meaning and no more: revenue is --good, the production
+   pair is --bad, and overhead is GREY — it is a cost, but a dull one, and a
+   third colour here would spend the page's whole colour budget on a legend. */
+.moneychart { width: 100%; height: auto; overflow: visible; }
+.moneychart .grid-line { stroke: var(--border); }
+.moneychart .zero-line { stroke: var(--border-strong); stroke-dasharray: 3 3; }
+.moneychart .goal-line { stroke: var(--accent-dim); stroke-dasharray: 4 4; }
+.moneychart .axis-text {
+  fill: var(--text-faint); font-family: var(--mono); font-size: 10px;
+}
+/* A value label sits directly over the line it describes, so it is painted
+   with a card-coloured halo underneath (paint-order puts the stroke behind
+   the fill). Without it the last point's figure is unreadable exactly where
+   the line arrives at it. */
+.moneychart .value-text {
+  fill: var(--text-muted);
+  stroke: var(--surface); stroke-width: 3px; paint-order: stroke;
+}
+.moneychart .line-stroke { fill: none; stroke: var(--accent); stroke-width: 2;
+                           stroke-linejoin: round; }
+.moneychart .line-area   { fill: var(--accent); opacity: .09; }
+.moneychart .line-dot    { fill: var(--accent); stroke: var(--surface);
+                           stroke-width: 2; }
+.seg-revenue   { fill: var(--good); }
+.seg-production{ fill: var(--bad); }
+.seg-overhead  { fill: var(--fill-soft); }
+.legend-dot.seg-revenue    { background: var(--good); }
+.legend-dot.seg-production { background: var(--bad); }
+.legend-dot.seg-overhead   { background: var(--fill-soft); }
+
+/* The donut is RANKED, so it shades down the grey ramp instead of taking six
+   hues: the order is the information, and the colour budget is spent. */
+.donut { width: 150px; flex: none; }
+.donut-seg { fill: none; stroke-width: 19; }
+.donut-0 { stroke: var(--f-100); background: var(--f-100); }
+.donut-1 { stroke: var(--f-300); background: var(--f-300); }
+.donut-2 { stroke: var(--icon-bg); background: var(--icon-bg); }
+.donut-3 { stroke: var(--f-500); background: var(--f-500); }
+.donut-4 { stroke: var(--f-600); background: var(--f-600); }
+.donut-5 { stroke: var(--f-650); background: var(--f-650); }
+.donut-total { fill: var(--text); font-family: var(--mono); font-size: 14px;
+               font-weight: 600; }
+.donut-cap   { fill: var(--text-faint); font-family: var(--mono);
+               font-size: 7.5px; letter-spacing: .12em; }
+.donut-wrap { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.donut-legend { flex: 1; min-width: 160px; display: flex; flex-direction: column;
+                gap: 8px; }
+.legend-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.legend-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend-val { margin-left: auto; font-family: var(--mono); font-size: 11.5px;
+              color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* A bar with its label ABOVE it, for rows whose label is a name plus a
+   figure — the two would not fit on the shared baseline of .bar-row. */
+.bar-row-wide { display: block; margin-bottom: 14px; }
+.bar-wide-head { display: flex; font-size: 12.5px; margin-bottom: 6px; }
+.bar-wide-val { margin-left: auto; font-family: var(--mono); font-size: 11.5px;
+                color: var(--text-muted); }
+
+.mini-table { width: 100%; border-collapse: collapse; }
+.mini-table td { padding: 8px 0; border-bottom: 1px solid var(--border);
+                 font-size: 12.5px; }
+.mini-table tr:last-child td { border-bottom: 0; }
+.mini-num { text-align: right; font-family: var(--mono); font-size: 12px;
+            font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chart-note { font-size: 11.5px; color: var(--text-faint); margin-top: 12px;
+              line-height: 1.6; }
 
 /* --- Deadlines view ------------------------------------------------------ */
 .due-badge {
