@@ -382,17 +382,33 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
 }
 
-.crumbs { min-width: 0; }
-.crumb-path {
-  font-size: 11px; color: var(--text-faint); font-family: var(--mono);
-  white-space: nowrap;
+/* One line, not a path stacked over a title. The section is a link back to
+   itself; the trailing segments are the live state (filters, open entry). */
+.crumbs {
+  display: flex; align-items: center; gap: 7px;
+  min-width: 0; overflow: hidden;
+  font-size: 12.5px; white-space: nowrap;
 }
-.crumb-path b { color: var(--text-muted); font-weight: 500; }
-.crumb-title {
-  margin-top: 3px;
-  font-size: 15px; font-weight: 650; letter-spacing: -.01em; color: var(--text);
-  white-space: nowrap;
+.crumb-link, .crumb-seg {
+  overflow: hidden; text-overflow: ellipsis;
+  font-weight: 550; letter-spacing: -.01em;
 }
+.crumb-link {
+  color: var(--text-muted); text-decoration: none;
+  border-radius: 7px; padding: 2px 4px; margin: 0 -4px;
+  transition: color .12s var(--ease), background .12s var(--ease);
+}
+.crumb-link:hover { color: var(--text); background: var(--surface-2); }
+/* Where you are reads at full strength; everything before it is a step. */
+.crumb-seg { color: var(--text-muted); }
+.crumb-seg.is-current { color: var(--text); font-weight: 650; }
+.crumb-sep {
+  color: var(--text-faint); font-size: 12px; flex: none;
+  transform: translateY(-.5px);
+}
+/* The first segment is the page you are on; anything after it is a filter, so
+   the tail is allowed to collapse before the name does. */
+.crumbs > :first-child { flex: none; }
 
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 
@@ -493,6 +509,28 @@ a { color: inherit; text-decoration: none; }
   font-size: 26px; font-weight: 750; letter-spacing: -.03em; margin: 0;
 }
 .view-sub { color: var(--text-faint); font-size: 12.5px; font-family: var(--mono); }
+
+/* Header facts. One pill per fact, count loud and noun quiet — the order the
+   eye reads them in. Replaces a mono run-on where the separator dots were
+   doing all the work of telling three numbers apart. */
+.view-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.meta-pill {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  font-size: 11.5px; font-weight: 500; color: var(--text-muted);
+  white-space: nowrap;
+}
+.meta-pill b {
+  font-family: var(--mono); font-size: 12px; font-weight: 650;
+  color: var(--text); letter-spacing: -.01em;
+}
+/* A toned pill states the count *and* how you should feel about it, so the
+   ink has to follow the chip's own rules rather than the muted default. */
+.meta-pill.chip-bad b, .meta-pill.chip-warn b, .meta-pill.chip-t3 b { color: inherit; }
+.meta-pill.chip-bad, .meta-pill.chip-warn, .meta-pill.chip-t3 { border-color: transparent; }
+/* Free text alongside the pills — a search term, a scope note. */
+.meta-note { color: var(--text-faint); font-size: 12.5px; font-family: var(--mono); }
 .spacer { margin-left: auto; }
 
 /* Filter bar (table view) ------------------------------------------------- */

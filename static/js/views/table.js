@@ -50,11 +50,15 @@ export async function renderTable(root, state) {
 
   root.append(el('div', { class: 'view-header' },
     el('h1', { class: 'view-title' }, 'Content Library'),
-    el('span', { class: 'view-sub' },
-      `${items.length} ${items.length === 1 ? 'entry' : 'entries'}` +
-      (rawTotal || finalTotal ? ` · ${rawTotal} raw · ${finalTotal} final` : '') +
-      (state.search ? ` matching “${state.search}”` : '') +
-      (activeCount ? ` · ${activeCount} filter${activeCount === 1 ? '' : 's'}` : '')),
+    metaPills([
+      { n: items.length, label: items.length === 1 ? 'entry' : 'entries' },
+      rawTotal   ? { n: rawTotal,   label: 'raw' }   : null,
+      finalTotal ? { n: finalTotal, label: 'final' } : null,
+      activeCount
+        ? { n: activeCount, label: activeCount === 1 ? 'filter' : 'filters' }
+        : null,
+      state.search ? `matching “${state.search}”` : null,
+    ]),
   ));
 
   root.append(filterBar(state, months));

@@ -472,6 +472,24 @@ function flash(node) {
   node.classList.add('saved');
 }
 
+/**
+ * The facts under a page title. Each part is `{n, label}` or a plain string,
+ * and gets its own unit.
+ *
+ * This replaced a single grey mono run-on — "22 entries · 21 raw · 11 final" —
+ * where the numbers are the content and the dots are the only thing telling
+ * you where one fact stops. Separating them lets the count be the loud part
+ * and the noun the quiet one, which is the order you actually read them in.
+ */
+export function metaPills(parts) {
+  return el('div', { class: 'view-meta' },
+    parts.filter(Boolean).map(p => typeof p === 'string'
+      ? el('span', { class: 'meta-note' }, p)
+      : el('span', { class: `meta-pill${p.tone ? ` chip-${p.tone}` : ''}` },
+          el('b', {}, String(p.n)),
+          el('span', {}, p.label))));
+}
+
 /* --- Date picker --------------------------------------------------------- *
  * Same reasoning as dropdown() vs <select>: the calendar an <input type=date>
  * opens is drawn by the browser chrome, not the page, so it takes no CSS and
