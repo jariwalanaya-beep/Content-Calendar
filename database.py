@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS content (
     assigned_to  TEXT    NOT NULL DEFAULT '',
     notes        TEXT    NOT NULL DEFAULT '',
     performance  TEXT,                          -- Viral | Average | Failed | NULL
-    status       TEXT    NOT NULL DEFAULT 'Idea',  -- Idea|Editing|Ready|Posted|Failed
+    status       TEXT    NOT NULL DEFAULT 'Idea',  -- Idea|Thinking|Editing|Ready|Posted|Failed
     type         TEXT,                          -- one of models.ContentType | NULL
     upload_date  TEXT,                          -- ISO 'YYYY-MM-DD'; drives the calendar view
     script       TEXT    NOT NULL DEFAULT '',

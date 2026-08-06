@@ -6,7 +6,7 @@
 import { api } from '../api.js';
 import {
   el, textCell, selectCell, dropdown, emptyState, loading, toast, confirmDialog,
-  formatMonth, STATUSES, PERFORMANCES, TYPES,
+  formatMonth, STATUSES, PERFORMANCES, TYPES, ICON,
 } from '../ui.js';
 
 /** Refresh the current route after a filter changes. */
@@ -167,14 +167,15 @@ function filterBar(state, months) {
 
   // One labelled dropdown. `options` is an array of {value, label}; the "all"
   // entry is pinned at the top with the empty value.
-  const field = (label, key, allLabel, options) =>
+  const field = (label, key, allLabel, options, allLead = {}) =>
     el('div', { class: 'filter-field' },
       el('span', { class: 'filter-label' }, label),
-      dropdown([{ value: '', label: allLabel }, ...options], f[key] || '',
+      dropdown([{ value: '', label: allLabel, ...allLead }, ...options], f[key] || '',
                v => { f[key] = v; rerender(); }, { ariaLabel: label }));
 
-  // Enum vocabularies use the same string for value and label.
-  const opt = arr => arr.map(x => ({ value: x.value, label: x.value }));
+  // Enum vocabularies use the same string for value and label, and carry their
+  // chip tone into the menu so a value looks the same here as in the rows.
+  const opt = arr => arr.map(x => ({ value: x.value, label: x.value, tone: x.color }));
 
   const active = f.status || f.type || f.performance || f.month || f.media;
 
@@ -186,15 +187,17 @@ function filterBar(state, months) {
           months.map(m => ({ value: m, label: formatMonth(m) }))),
     // Which bucket an entry must have. 'raw' vs 'final' is the useful split:
     // raw = footage waiting to be cut, final = a delivered edit.
+    // The first two ask "does a bucket have anything in it?"; the next two ask
+    // a question about the *pipeline*, so a rule separates the two kinds.
     field('Media', 'media', 'Any', [
-      { value: 'raw',      label: 'Has raw' },
-      { value: 'final',    label: 'Has final' },
+      { value: 'raw',      label: 'Has raw',         icon: ICON.film,     sep: true },
+      { value: 'final',    label: 'Has final',       icon: ICON.filmDone },
       // Footage banked: shot, still uncut — the material you can edit next.
-      { value: 'rawonly',  label: '🎞 Raw, not cut yet' },
+      { value: 'rawonly',  label: 'Raw, not cut yet', icon: ICON.scissors, sep: true },
       // Answers "what have I cut but not put on the channel?"
-      { value: 'unposted', label: '⬆ Not posted yet' },
-      { value: 'none',     label: 'No video' },
-    ]),
+      { value: 'unposted', label: 'Not posted yet',  icon: ICON.upload },
+      { value: 'none',     label: 'No video',        icon: ICON.empty,    sep: true },
+    ], { icon: ICON.layers }),
     active ? el('button', {
       class: 'btn btn-ghost btn-sm filter-clear',
       onclick: () => {

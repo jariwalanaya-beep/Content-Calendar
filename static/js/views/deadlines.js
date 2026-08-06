@@ -17,7 +17,7 @@
 import { api } from '../api.js';
 import {
   el, textCell, selectCell, emptyState, loading, toast,
-  formatDate, toISODate, STATUSES,
+  formatDate, toISODate, STATUSES, openDatePicker,
 } from '../ui.js';
 
 /** Days between today and an ISO date. Negative = overdue. */
@@ -86,43 +86,40 @@ function finalUploadCell(item) {
 /**
  * The deadline control — one place, one click.
  *
- * A bare <input type="date"> renders as faint "mm/dd/yyyy" that reads like
- * disabled placeholder text, and in Chromium only its little calendar glyph
- * opens the picker. So the visible control is a real button (the due badge
- * when a date is set, "＋ Add deadline" when it is not) and the input sits
- * behind it, rendered but invisible, driven by showPicker().
+ * The visible control is the due badge itself when a date is set, and
+ * "＋ Add deadline" when it is not; clicking it opens the app's own calendar
+ * (openDatePicker in ui.js). It used to drive a hidden <input type="date">
+ * through showPicker(), which worked but handed the user a browser-chrome
+ * calendar that takes no CSS — the one thing this control was built to avoid.
  */
 function deadlineControl(item, save, due) {
-  const input = el('input', {
-    type: 'date', class: 'dl-input', value: item.deadline || '',
-    'aria-label': `Deadline for ${item.topic}`,
-  });
-
   const btn = el('button', {
     type: 'button',
     class: `dl-control ${item.deadline ? `due-badge ${due.cls}` : 'is-empty'}`,
+    'aria-label': `Deadline for ${item.topic}`,
     title: item.deadline ? `Due ${formatDate(item.deadline)} — click to change`
                          : 'Set an editor deadline',
-    onclick: e => {
-      e.stopPropagation();
-      // showPicker() needs a user gesture, which this click is. focus() is the
-      // fallback for browsers that do not implement it.
-      try { input.showPicker(); } catch { input.focus(); }
-    },
   }, item.done ? 'Completed'
    : item.deadline ? due.text
    : '＋ Add deadline');
 
-  input.addEventListener('change', async () => {
+  const commit = async value => {
     try {
-      await save({ deadline: input.value });
-      toast(input.value ? `Deadline set to ${formatDate(input.value)}`
-                        : 'Deadline cleared');
+      await save({ deadline: value });
+      toast(value ? `Deadline set to ${formatDate(value)}` : 'Deadline cleared');
       import('../app.js').then(m => m.refresh());
     } catch (err) { toast(err.message, true); }
+  };
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    openDatePicker(btn, item.deadline || '', {
+      onPick: commit,
+      onClear: item.deadline ? () => commit('') : null,
+    });
   });
 
-  return el('div', { class: 'dl-wrap' }, btn, input);
+  return el('div', { class: 'dl-wrap' }, btn);
 }
 
 // Kept across re-renders so the toggle survives a refresh.

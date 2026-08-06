@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field, field_validator
 class Status(str, Enum):
     """Pipeline stage. Order here is the order of the kanban board columns."""
     IDEA = "Idea"
+    THINKING = "Thinking"   # shot, but still deciding how to cut it / whether to hand it over
     EDITING = "Editing"
     READY = "Ready"
     POSTED = "Posted"

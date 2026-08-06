@@ -56,7 +56,11 @@ one of them, not inventing a colour.
 
 Current `ContentType`: Story, Celebrity, Theory, Decode, Fact, Lesson,
 Hypothetical, Debate, Pitch. `Performance`: Viral / Average / Failed.
-`Status`: Idea / Editing / Ready / Posted / Failed.
+`Status`: Idea / Thinking / Editing / Ready / Posted / Failed. **Thinking** is
+the stage between shooting and handing the cut over — footage exists, you are
+still deciding how (or whether) to give it to the editor. The four grey rungs
+run in pipeline order, quiet → loud: Idea `n`, Thinking `t1`, Ready `t2`,
+Posted `t3`; Editing stays `warn` and Failed `bad`.
 
 ⚠ The DB stores these as plain TEXT. Removing an enum value makes GET
 endpoints crash on old rows (response validation), so migrate or NULL the
