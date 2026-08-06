@@ -14,7 +14,7 @@
  */
 
 import { api } from './api.js';
-import { currentMonth, clear, el, toast, formatBytes } from './ui.js';
+import { currentMonth, clear, el, toast, formatBytes, formatMonth } from './ui.js';
 import { renderTable }    from './views/table.js';
 import { renderDeadlines } from './views/deadlines.js';
 import { renderCalendar } from './views/calendar.js';
@@ -49,6 +49,53 @@ export const state = {
 };
 
 const viewRoot = () => document.getElementById('view');
+
+/* --- Breadcrumb ---------------------------------------------------------- */
+
+const SECTIONS = {
+  table: 'Library', deadlines: 'Deadlines', calendar: 'Calendar',
+  month: 'This Month', dashboard: 'Dashboard', weekly: 'Weekly', money: 'Money',
+};
+
+/**
+ * Write the top-bar breadcrumb. `segments` is [{label, href?}] — a segment
+ * with an href is somewhere you can go back to, and the last one is where you
+ * are. Exported because the detail page fills its own entry title in once the
+ * fetch lands, and the table view re-states the filters after a rerender.
+ */
+export function setCrumb(segments) {
+  const nav = document.getElementById('crumb-path');
+  if (!nav) return;
+  clear(nav);
+  segments.forEach((seg, i) => {
+    if (i) nav.append(el('span', { class: 'crumb-sep', 'aria-hidden': 'true' }, '/'));
+    nav.append(seg.href
+      ? el('a', { class: 'crumb-link', href: seg.href }, seg.label)
+      : el('span', {
+          class: `crumb-seg${i === segments.length - 1 ? ' is-current' : ''}`,
+          'aria-current': i === segments.length - 1 ? 'page' : null,
+        }, seg.label));
+  });
+}
+
+/**
+ * The filters currently narrowing the library, as trailing crumb segments —
+ * the one thing up here the lit sidebar tile cannot tell you. Only the table
+ * and month views read `state.filters`, so nothing else grows a tail.
+ */
+function appliedCrumbs(active) {
+  if (active !== 'table' && active !== 'month') return [];
+  const f = state.filters;
+  const MEDIA_LABELS = {
+    raw: 'Has raw', final: 'Has final', rawonly: 'Raw, not cut yet',
+    unposted: 'Not posted yet', none: 'No video',
+  };
+  const parts = [f.status, f.type, f.performance,
+                 f.month ? formatMonth(f.month) : '', MEDIA_LABELS[f.media] || '']
+    .filter(Boolean);
+  if (state.search) parts.push(`“${state.search}”`);
+  return parts.map(label => ({ label }));
+}
 
 /* --- Routing ------------------------------------------------------------- */
 
@@ -113,15 +160,13 @@ async function route({ inPlace = false } = {}) {
   document.querySelectorAll('.side-link').forEach(a =>
     a.classList.toggle('active', a.dataset.route === active));
 
-  // Breadcrumb + page title mirror the sidebar selection, so the header always
-  // names the thing on screen — including "Entry" while a detail page is open.
-  const TITLES = {
-    table: 'Library', deadlines: 'Deadlines', calendar: 'Calendar',
-    month: 'This Month', dashboard: 'Dashboard', weekly: 'Weekly', money: 'Money',
-  };
-  const here = name === 'content' ? 'Entry' : (TITLES[active] || 'Library');
-  document.getElementById('crumb-here').textContent = here;
-  document.getElementById('crumb-title').textContent = here;
+  // The breadcrumb mirrors the sidebar selection and then says what is applied
+  // on top of it, which is the only thing up here the sidebar does not already
+  // tell you. A detail page shows the list it was opened from, then the entry.
+  const here = name === 'content' ? 'Entry' : (SECTIONS[active] || 'Library');
+  setCrumb(name === 'content'
+    ? [{ label: SECTIONS[active] || 'Library', href: state.returnTo }, { label: 'Entry' }]
+    : [{ label: here }, ...appliedCrumbs(active)]);
   document.title = `${here} · Content Hub`;
   // A tap on a nav item closes the drawer on narrow screens.
   document.getElementById('sidebar').classList.remove('is-open');

@@ -108,12 +108,12 @@
            stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
     </button>
 
-    <!-- Breadcrumb over page title, as in the reference: the crumb says where
-         you are in the app, the title says what you are looking at. -->
-    <div class="crumbs">
-      <div class="crumb-path"><span>Pages</span> / <b id="crumb-here">Library</b></div>
-      <div class="crumb-title" id="crumb-title">Library</div>
-    </div>
+    <!-- One live breadcrumb, written by setCrumb() in app.js. It used to be a
+         "Pages / Library" path stacked over a "Library" title, which named the
+         page three times counting the lit sidebar tile and said nothing you
+         could not already see. Now the trailing segments carry what is
+         actually applied — the filter, the month, the open entry. -->
+    <nav class="crumbs" id="crumb-path" aria-label="Breadcrumb"></nav>
 
     <div class="topbar-right">
       <div class="search-wrap">
